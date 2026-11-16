@@ -6,8 +6,8 @@ Every external piece (LLM, TTS, image, motion, aligner, uploader) is a provider 
 Switching providers needs only a restart.
 
 ```bash
-uv sync --extra claude --extra f5 --extra whisper --extra youtube
-cp .env.example .env        # set ANTHROPIC_API_KEY, voice reference, ComfyUI workflows
+uv sync --extra f5 --extra whisper --extra search --extra youtube
+cp .env.example .env        # point at your local LLM server + ComfyUI, set the voice reference
 uv run shorts check
 uv run shorts make "black holes" -n 3
 ```

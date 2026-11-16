@@ -78,3 +78,32 @@ def test_review_can_be_disabled(tmp_path):
     assert pipeline.execute(ctx, [run], ["script", "review", "images"])[run.id] == "ok"
     assert not (run.path / "review.json").exists()
     assert "qa" not in run.stage("images").notes or not run.stage("images").notes["qa"]
+
+
+def test_local_llm_review_uses_search_provider(tmp_path, monkeypatch):
+    from shorts.stages import research
+
+    monkeypatch.setattr(research, "page_text", lambda url, limit=4000: f"page text of {url}")
+    ctx = make_ctx(tmp_path, llm_mock_web_search="false", search_provider="mock", review_fetch_pages=2,
+                   review_search_results=2)
+    run = new_run(ctx)
+    assert pipeline.execute(ctx, [run], ["script", "review"])[run.id] == "ok"
+    notes = json.loads((run.path / "review.json").read_text())[0]["research"]
+    assert "## Query: mock claim one" in notes and "## Query: mock claim two" in notes
+    assert notes.count("Page excerpt:") == 2
+
+
+def test_images_batch_unloads_between_rounds_for_local_llm(tmp_path):
+    ctx = make_ctx(tmp_path, llm_mock_image_score=3, image_qa_max_retries=1, llm_mock_scenes=2)
+    unloads = []
+    orig = ctx.unload
+    ctx.unload = lambda kind=None: (unloads.append(kind), orig(kind))[1]
+    ideas.generate_ideas(ctx, "space", 2)
+    runs = pipeline.create_runs(ctx, "space", ideas.take_unused(ctx.app, "space", 2))
+    status = pipeline.execute(ctx, runs, ["script", "review", "images"])
+    assert all(v == "ok" for v in status.values()), status
+    # round 1 gen → free image → QA → free llm → round 2 gen → free image → QA ; then stage-end unloads
+    seq = [u for u in unloads if u in ("image", "llm")]
+    assert seq[:4] == ["llm", "image", "llm", "image"]  # (first "llm" is the end of the review stage)
+    for r in runs:
+        assert [t["try"] for t in r.stage("images").notes["qa"]["1"]] == [1, 2]

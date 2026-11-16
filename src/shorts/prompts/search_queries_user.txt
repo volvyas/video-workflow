@@ -1,0 +1,8 @@
+We need to fact-check the narration of a short video about: $topic
+
+Narration:
+$narration
+
+Write up to $count short web search queries that would verify the most important factual claims
+(numbers, dates, names, superlatives, cause-and-effect). One claim per query, in English, as you would type into a
+search engine.

@@ -37,6 +37,8 @@ class Provider(ABC):
     Settings: ClassVar[type[BaseModel]] = NoSettings
     # Shown as a warning by `shorts check` when the default model can't be used commercially.
     license_note: ClassVar[str | None] = None
+    # True for hosted APIs (no local GPU/RAM), so the pipeline can skip model swapping around it.
+    remote: ClassVar[bool] = False
 
     def __init__(self, settings: BaseModel, app: "AppSettings"):
         self.settings = settings
@@ -119,6 +121,19 @@ class MotionProvider(Provider):
         """Turn a still into a video clip of roughly `duration` seconds."""
 
 
+class SearchResult(BaseModel):
+    title: str
+    url: str
+    snippet: str
+
+
+class SearchProvider(Provider):
+    kind = "search"
+
+    @abstractmethod
+    def search(self, query: str, max_results: int) -> list[SearchResult]: ...
+
+
 class Uploader(Provider):
     kind = "upload"
 
@@ -134,4 +149,5 @@ KIND_BASES: dict[str, type[Provider]] = {
     "image": ImageProvider,
     "motion": MotionProvider,
     "upload": Uploader,
+    "search": SearchProvider,
 }

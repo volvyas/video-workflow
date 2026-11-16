@@ -41,6 +41,11 @@ BUILTINS: dict[str, dict[str, str]] = {
         "comfyui_i2v": "shorts.providers.motion.comfyui_i2v:ComfyI2V",
         "mock": "shorts.providers.motion.mock:MockMotion",
     },
+    "search": {
+        "ddgs": "shorts.providers.search.ddgs:DDGSSearch",
+        "searxng": "shorts.providers.search.searxng:SearXNGSearch",
+        "mock": "shorts.providers.search.mock:MockSearch",
+    },
     "upload": {
         "youtube": "shorts.providers.upload.youtube:YouTubeUploader",
         "none": "shorts.providers.upload.none:NoUpload",

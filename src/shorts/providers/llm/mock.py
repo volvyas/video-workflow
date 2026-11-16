@@ -35,6 +35,8 @@ class MockLLM(LLMProvider):
         return "Mock research: all claims look correct. Source: https://example.com"
 
     def generate_json(self, *, system: str, prompt: str, schema: type[T], images: list[Path] | None = None) -> T:
+        if schema.__name__ == "SearchQueries":
+            return schema(queries=["mock claim one", "mock claim two"])
         if schema is ScriptReview:
             m = re.search(r"<script>(.*?)</script>", prompt, re.DOTALL)
             script = Script.model_validate(json.loads(m.group(1))) if m else None

@@ -22,6 +22,7 @@ Each task ends in something runnable or testable. Tasks are in dependency order.
 | 16 | **Licenses**: LICENSES.md, `license_note` warnings in `shorts check`, Kokoro provider (Apache-2.0); Chatterbox via ComfyUI (pip pins torch 2.6 → no RTX 50xx) | ✅ | Kokoro verified on real GPU |
 | 17 | **Quality gates**: `review` stage (web-search fact-check + critique + revision rounds, `accept`), image QA with re-rolls, vision input for all LLM providers | ✅ ¹ | Mock e2e tests pass; live Claude run pending |
 | 18 | **Retention**: loop ending + pattern-interrupt rules, per-video `visual_style`, SFX on cuts | ✅ | Mock e2e tests pass |
+| 19 | **Local LLM default** (2026-11-17): openai_compat → Qwen3.8-Flash-Next via llama.cpp/llama-swap, unload hook, `extra_body`; search providers (ddgs, searxng) + local fact-check research; image QA as batch rounds to limit model swaps | ✅ ² | Mock tests + live DDG search pass; run against your LLM server pending |
 | 13 | **Real-hardware bring-up** on the 5070 Ti: install F5/ComfyUI models, export real workflows, tune defaults | ⬜ | First real Short produced |
 | 14 | **Evaluation helpers**: `--env-file` A/B runs, per-run cost/time report in manifest | ⬜ | `shorts report` compares runs |
 

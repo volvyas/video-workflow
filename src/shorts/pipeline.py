@@ -33,14 +33,18 @@ def _runner(stage: str) -> Callable[[Context, Run, set[int] | None], object]:
         "review": lambda c, r, o: review.review_script(c, r),
         "voice": voice.synthesize,
         "align": lambda c, r, o: align.align(c, r),
-        "images": visuals.generate_images,
         "motion": visuals.generate_motion,
         "assemble": lambda c, r, o: assemble(c.app, r, [visuals.scene_file(r, "clips", t.index) for t in r.timings()]),
     }[stage]
 
 
+# stages that process all runs together (stage function gets the list of runs, returns {run_id: error})
+_BATCH = {"images": visuals.generate_images_batch}
+
 # stage -> provider kind to unload after the stage finishes for the whole batch
 _UNLOAD_AFTER = {"review": "llm", "voice": "tts", "align": "align", "images": "image", "motion": "motion"}
+# the image stage may also have loaded the QA LLM
+_UNLOAD_ALSO = {"images": "llm"}
 
 
 def create_runs(ctx: Context, topic: str, picked: list[StoredIdea]) -> list[Run]:
@@ -66,6 +70,25 @@ def execute(ctx: Context, runs: list[Run], stages: list[str] | None = None, *, f
         if not active:
             continue
         log.info("=== stage %s (%d run%s)", stage, len(active), "s" if len(active) > 1 else "")
+        if stage in _BATCH:
+            for r in active:
+                r.start(stage, _provider_name(ctx, stage))
+            try:
+                errs = _BATCH[stage](ctx, active, only_scenes)
+            except Exception as e:  # noqa: BLE001
+                log.debug(traceback.format_exc())
+                errs = {r.id: f"{type(e).__name__}: {e}" for r in active}
+            for r in active:
+                if r.id in errs:
+                    log.error("[%s] stage %s failed: %s", r.id, stage, errs[r.id])
+                    r.fail(stage, errs[r.id])
+                    status[r.id] = f"{stage}: {errs[r.id]}"
+                else:
+                    r.finish(stage)
+            for kind in (_UNLOAD_AFTER.get(stage), _UNLOAD_ALSO.get(stage)):
+                if kind:
+                    ctx.unload(kind)
+            continue
         for r in active:
             r.start(stage, _provider_name(ctx, stage))
             try:

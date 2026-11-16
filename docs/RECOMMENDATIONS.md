@@ -22,11 +22,18 @@ Suggestions made during design, with their status. ✅ done · 🔄 in progress 
 | 5d | **Local review page**: watch, approve, re-roll a scene | Faster than the command line | ⬜ |
 | 6a | **Multi-language versions**: same visuals, translated script and voice, separate channel or multi-audio track | Cheap extra reach | ⬜ |
 | 6b | **TikTok / Instagram Reels uploaders** | Same video, more platforms (their APIs need an app review) | ⬜ |
-| 7a | **Claude cost**: Message Batches API (50% off, async, ≤24 h) for batches; prompt caching for the stable system prompts | Lower API bill | ⬜ |
-| 7a2 | **Per-stage Claude model**: e.g. Opus for script/review, Haiku for image QA. Today `LLM_CLAUDE_MODEL` applies to every stage that uses Claude | Image QA runs up to 30×/video; Haiku costs ~1/40 of Opus per token | ⬜ |
-| 7a3 | **Spend cap**: set a monthly spend limit in the Claude Console | Protects against a runaway batch | ⬜ your action |
+| 7a | (only if Claude is used) **Claude cost**: Message Batches API (50% off, async, ≤24 h) for batches; prompt caching for the stable system prompts | Lower API bill | ⬜ |
+| 7a2 | **Per-stage model**: e.g. the big model for script/review, a small fast vision model for image QA. Today one model setting per provider applies to every stage using it | Image QA runs up to 30×/video | ⬜ |
+| 7a3 | (only if Claude is used) **Spend cap** in the Claude Console | Protects against a runaway batch | ⬜ |
 | 7b | **A/B LLMs**: e.g. `IDEAS_LLM_PROVIDER=ollama` vs Claude for a week | Data-driven provider choice | ⬜ (supported via `-e` env files) |
 | 7c | **YouTube policy hygiene**: vary formats (top-3, myth vs fact, "what if…"), consider your own voice as the cloning reference | YPP excludes repetitive/mass-produced content | ⬜ |
+
+## Decisions log
+
+| Date | Decision |
+|---|---|
+| 2026-11-17 | **Default to local LLMs.** The Claude API bills separately from the Claude subscription. Target: Qwen3.8-Flash-Next (125B MoE, ~6B active) on the GPU box with expert offload; Claude stays as an optional provider |
+| 2026-11-17 | Fact-check web search via DuckDuckGo (`ddgs`) by default; SearXNG if it gets rate-limited |
 
 ## Earlier design suggestions
 

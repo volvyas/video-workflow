@@ -33,6 +33,7 @@ class ClaudeLLM(LLMProvider):
     Settings = ClaudeSettings
     settings: ClaudeSettings
     supports_vision = True
+    remote = True
 
     def __init__(self, settings, app):
         super().__init__(settings, app)

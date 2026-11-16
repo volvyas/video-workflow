@@ -36,6 +36,7 @@ class AppSettings(BaseModel):
     motion_fallback: str | None = "kenburns"
     motion_scenes: str = "all"  # all | none | first:N | every:N
     uploader: str = "none"
+    search_provider: str = "none"  # web search for local-LLM fact-checking: ddgs | searxng | none
 
     # --- content ------------------------------------------------------------
     content_language: str = "English"
@@ -50,6 +51,9 @@ class AppSettings(BaseModel):
     review_min_score: int = 7
     review_max_rounds: int = 2
     review_on_low_score: str = "fail"  # fail (stop this run for human review) | continue
+    review_search_queries: int = 6  # local research: max search queries per round
+    review_search_results: int = 4  # results per query
+    review_fetch_pages: int = 3  # also read the full text of this many top pages (0 = snippets only)
     image_qa_enabled: bool = True
     image_qa_min_score: int = 6
     image_qa_max_retries: int = 2

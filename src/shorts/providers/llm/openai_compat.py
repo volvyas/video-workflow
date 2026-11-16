@@ -17,10 +17,13 @@ class OpenAICompatSettings(ProviderSettings):
     model: str = "local-model"
     api_key: SecretStr | None = None
     temperature: float = 0.8
-    max_tokens: int = 8000
+    max_tokens: int = 16000
     response_format: str = "json_schema"  # json_schema | json_object | none
-    timeout: float = 600
+    timeout: float = 900
     retries: int = 2
+    extra_body: str = ""  # JSON merged into each request, e.g. {"chat_template_kwargs": {"enable_thinking": false}}
+    unload_url: str = ""  # called by the pipeline to free RAM/VRAM, e.g. llama-swap: http://host:8080/unload
+    unload_method: str = "GET"
 
 
 class OpenAICompatLLM(LLMProvider):
@@ -56,6 +59,10 @@ class OpenAICompatLLM(LLMProvider):
                 {"role": "user", "content": user_content},
             ],
         }
+        if self.settings.extra_body:
+            import json as _json
+
+            body.update(_json.loads(self.settings.extra_body))
         mode = self.settings.response_format
         if mode == "json_schema":
             body["response_format"] = {
@@ -81,3 +88,12 @@ class OpenAICompatLLM(LLMProvider):
             except httpx.HTTPError as e:
                 raise ProviderError(f"request to {self.settings.base_url} failed: {e}") from e
         raise ProviderError(f"invalid output after retries: {last_err}")
+
+    def unload(self) -> None:
+        if not self.settings.unload_url:
+            return
+        try:
+            self._http.request(self.settings.unload_method.upper(), self.settings.unload_url, timeout=60)
+            self.log.info("unloaded model via %s", self.settings.unload_url)
+        except httpx.HTTPError as e:
+            self.log.warning("unload request to %s failed: %s", self.settings.unload_url, e)

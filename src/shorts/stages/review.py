@@ -11,6 +11,7 @@ from shorts.context import Context
 from shorts.models import Script, ScriptReview
 from shorts.prompts import render
 from shorts.run import Run
+from shorts.stages.research import research as web_research
 
 log = logging.getLogger("shorts.stage.review")
 
@@ -38,14 +39,9 @@ def review_script(ctx: Context, run: Run) -> ScriptReview | None:
     review: ScriptReview | None = None
     for rnd in range(1, max(1, app.review_max_rounds) + 1):
         research = ""
-        if app.review_web_search and llm.supports_web_search:
-            log.info("[%s] fact-check round %d (web search)", run.id, rnd)
-            research = llm.research(
-                system=render("research_system", app.prompts_dir),
-                prompt=render("research_user", app.prompts_dir, topic=topic, narration=current.narration),
-            )
-        elif app.review_web_search:
-            log.warning("%s has no web search; the reviewer checks facts from its own knowledge", llm.describe())
+        if app.review_web_search:
+            log.info("[%s] fact-check round %d: web research", run.id, rnd)
+            research = web_research(ctx, topic, current.narration)
         prompt = render("review_user", app.prompts_dir, topic=topic, research=research or "(none)",
                         script=current.model_dump_json())
         review = llm.generate_json(system=system, prompt=prompt, schema=ScriptReview)

@@ -37,51 +37,95 @@ def _check(ctx: Context, image: Path, prompt: str, scene: Scene) -> ImageVerdict
     )
 
 
-def generate_images(ctx: Context, run: Run, only: set[int] | None = None) -> None:
+class _Item:
+    """One scene image being produced (possibly over several QA rounds)."""
+
+    def __init__(self, run: Run, index: int, scene: Scene, prompt: str):
+        self.run, self.index, self.scene, self.prompt = run, index, scene, prompt
+        self.out = run.scene_file("images", index, "png")
+        self.best: tuple[int, Path] | None = None
+        self.passed = False
+        self.history: list[dict] = []
+
+    def candidate(self, k: int) -> Path:
+        return self.out if k == 0 else self.run.sub("images", "candidates", f"scene_{self.index + 1:02d}_try{k + 1}.png")
+
+
+def generate_images_batch(ctx: Context, runs: list[Run], only: set[int] | None = None) -> dict[str, str]:
+    """Generate (and QA) images for all runs in rounds, so GPU models swap once per round, not once per image.
+
+    Round k: generate every pending image with ComfyUI → free ComfyUI → check all with the vision LLM →
+    free the LLM → re-roll only the rejected ones. Returns {run_id: error} for runs that failed.
+    """
     app = ctx.app
-    script = run.script()
-    provider = ctx.image()
-    qa_notes: dict = run.stage("images").notes.setdefault("qa", {})
+    errors: dict[str, str] = {}
+    items: list[_Item] = []
+    for run in runs:
+        script = run.script()
+        for i, scene in enumerate(script.scenes):
+            if run.scene_file("images", i, "png").exists() and not (only and i in only):
+                continue
+            items.append(_Item(run, i, scene, image_prompt(app, script, scene)))
+
     qa = app.image_qa_enabled
     if qa and not ctx.llm("image_qa").supports_vision:
         log.warning("image QA disabled: %s has no vision support", ctx.llm("image_qa").describe())
         qa = False
-    for i, scene in enumerate(script.scenes):
-        out = run.scene_file("images", i, "png")
-        if out.exists() and not (only and i in only):
-            continue
-        prompt = image_prompt(app, script, scene)
-        attempts = 1 + (max(0, app.image_qa_max_retries) if qa else 0)
-        best: tuple[int, Path] | None = None
-        history = []
-        passed = False
-        for k in range(attempts):
-            seed = run.manifest.seed + i + 1000 * k
-            cand = out if k == 0 else run.sub("images", "candidates", f"scene_{i + 1:02d}_try{k + 1}.png")
-            log.info("[%s] image %d/%d%s", run.id, i + 1, len(script.scenes), f" (re-roll {k})" if k else "")
-            provider.generate(prompt=prompt, negative=app.negative_prompt, width=app.image_width,
-                              height=app.image_height, seed=seed, out_path=cand)
+    llm_remote = qa and ctx.llm("image_qa").remote
+    rounds = 1 + (max(0, app.image_qa_max_retries) if qa else 0)
+    todo = items
+    for k in range(rounds):
+        todo = [it for it in todo if it.run.id not in errors]
+        if not todo:
+            break
+        provider = ctx.image()
+        for it in todo:
+            if it.run.id in errors:
+                continue
+            seed = it.run.manifest.seed + it.index + 1000 * k
+            log.info("[%s] image %d%s", it.run.id, it.index + 1, f" (re-roll {k})" if k else "")
+            try:
+                provider.generate(prompt=it.prompt, negative=app.negative_prompt, width=app.image_width,
+                                  height=app.image_height, seed=seed, out_path=it.candidate(k))
+            except Exception as e:  # noqa: BLE001 - isolate failures per run
+                errors[it.run.id] = f"image scene {it.index + 1}: {e}"
+                continue
+            it.history.append({"try": k + 1, "seed": seed})
             if not qa:
-                best = (0, cand)
-                break
-            verdict = _check(ctx, cand, prompt, scene)
-            history.append({"try": k + 1, "seed": seed, **verdict.model_dump()})
-            if best is None or verdict.score > best[0]:
-                best = (verdict.score, cand)
+                it.best, it.passed = (0, it.candidate(k)), True
+        if not qa:
+            break
+        if not llm_remote:
+            ctx.unload("image")  # free ComfyUI VRAM/RAM before the local LLM loads
+        for it in todo:
+            if it.run.id in errors or len(it.history) <= k:
+                continue
+            verdict = _check(ctx, it.candidate(k), it.prompt, it.scene)
+            it.history[-1].update(verdict.model_dump())
+            if it.best is None or verdict.score > it.best[0]:
+                it.best = (verdict.score, it.candidate(k))
             if verdict.acceptable(app.image_qa_min_score):
-                best, passed = (verdict.score, cand), True
-                break
-            log.info("[%s] image %d rejected (score %d): %s", run.id, i + 1, verdict.score,
-                     "; ".join(verdict.problems) or "flags set")
-        assert best is not None
-        if best[1] != out:  # keep the best candidate as the scene image; the first try moves to candidates/
-            if out.exists():
-                out.replace(run.sub("images", "candidates", f"scene_{i + 1:02d}_try1.png"))
-            best[1].replace(out)
+                it.best, it.passed = (verdict.score, it.candidate(k)), True
+            else:
+                log.info("[%s] image %d rejected (score %d): %s", it.run.id, it.index + 1, verdict.score,
+                         "; ".join(verdict.problems) or "flags set")
+        todo = [it for it in todo if not it.passed]
+        if todo and k + 1 < rounds and not llm_remote:
+            ctx.unload("llm")  # free the LLM before ComfyUI loads again
+
+    for it in items:
+        if it.run.id in errors or it.best is None:
+            continue
+        if it.best[1] != it.out:  # keep the best candidate as the scene image; the first try moves to candidates/
+            if it.out.exists():
+                it.out.replace(it.run.sub("images", "candidates", f"scene_{it.index + 1:02d}_try1.png"))
+            it.best[1].replace(it.out)
         if qa:
-            qa_notes[str(i + 1)] = history
-            if not passed:
-                log.warning("[%s] scene %d: no candidate passed QA; using the best (score %d)", run.id, i + 1, best[0])
+            it.run.stage("images").notes.setdefault("qa", {})[str(it.index + 1)] = it.history
+            if not it.passed:
+                log.warning("[%s] scene %d: no candidate passed QA; using the best (score %d)",
+                            it.run.id, it.index + 1, it.best[0])
+    return errors
 
 
 def wants_primary(policy: str, index: int) -> bool:

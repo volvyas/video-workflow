@@ -26,6 +26,7 @@ ffmpeg = [
     "imageio-ffmpeg>=0.5",
 ]
 # YouTube upload
+search = ["ddgs>=9.0"]
 youtube = ["google-api-python-client>=2.0", "google-auth-oauthlib>=1.0"]
 
 [project.scripts]

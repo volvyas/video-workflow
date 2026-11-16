@@ -7,7 +7,9 @@ import random
 
 from shorts.config import Env
 from shorts.media import ffmpeg
-from shorts.providers.base import Aligner, ImageProvider, LLMProvider, MotionProvider, Provider, TTSProvider, Uploader
+from shorts.providers.base import (
+    Aligner, ImageProvider, LLMProvider, MotionProvider, Provider, SearchProvider, TTSProvider, Uploader,
+)
 from shorts.registry import create
 
 log = logging.getLogger("shorts")
@@ -46,6 +48,9 @@ class Context:
         if not name or name == "none":
             return None
         return self.provider("motion", name)  # type: ignore[return-value]
+
+    def search(self) -> SearchProvider:
+        return self.provider("search", self.app.search_provider)  # type: ignore[return-value]
 
     def uploader(self) -> Uploader:
         return self.provider("upload", self.app.uploader)  # type: ignore[return-value]

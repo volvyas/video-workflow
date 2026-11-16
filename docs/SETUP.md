@@ -22,7 +22,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh   # uv package manager
 
 ```bash
 cd video-workflow
-uv sync --extra claude --extra f5 --extra whisper --extra youtube   # or --extra kokoro instead of f5
+uv sync --extra f5 --extra whisper --extra search --extra youtube   # or --extra kokoro instead of f5; --extra claude only if you use the paid API
 cp .env.example .env
 uv run pytest -q                 # offline tests
 uv run shorts providers          # shows available + selected providers
@@ -40,29 +40,59 @@ It produces a real `final.mp4` with placeholder visuals.
 
 ---
 
-## 3. LLM
+## 3. LLM (default: local)
 
-### 3.1 Claude (default)
-1. Create an API key at <https://console.anthropic.com> → *API keys*.
-2. In `.env`, set `ANTHROPIC_API_KEY=sk-ant-...` (`.env` is git-ignored).
-3. `uv run shorts llm-test`. It should print 3 ideas as JSON.
+The pipeline talks to any **OpenAI-compatible** server (`LLM_PROVIDER=openai_compat`), so llama.cpp's `llama-server`,
+llama-swap, LM Studio and vLLM all work. One model can do everything: ideas, scripts, review, and the image check
+(if it has vision).
 
-Cost knobs: `LLM_CLAUDE_MODEL` (`claude-opus-5-5` default; `claude-sonnet-5-5` / `claude-haiku-5-5` are cheaper)
-and `LLM_CLAUDE_EFFORT` (`low` … `max`). Each call logs its token usage. A script is roughly 2–4k tokens in and 1–2k out.
+### 3.1 Qwen3.8-Flash-Next (125B MoE, ~6B active) on the GPU box
+If you already run it, keep your setup and point `.env` at it. Requirements:
+- OpenAI-compatible endpoint (`/v1/chat/completions`) reachable from the orchestrator machine (`--host 0.0.0.0`).
+- `response_format: json_schema` support (llama-server converts it to a grammar). If your server lacks it, set
+  `LLM_OPENAI_RESPONSE_FORMAT=json_object` or `none`. The pipeline validates and retries either way.
+- **Vision for the image check:** load the model's vision projector (`--mmproj …` in llama.cpp). Without it, set
+  `IMAGE_QA_ENABLED=false` or point `IMAGE_QA_LLM_PROVIDER` at a small vision model.
+- Context ≥ 32k (`-c 32768`): the fact-check prompt carries search results.
 
-### 3.2 Local LLM: Ollama
+Typical llama.cpp launch (check flag names against your build; MoE expert offload keeps VRAM use low):
 ```bash
-curl -fsSL https://ollama.com/install.sh | sh
-ollama pull qwen3:14b            # ~9 GB, good JSON + writing on 16 GB; alternatives: gemma3:12b, mistral-small3.2
+llama-server -m Qwen3.8-Flash-Next-<quant>.gguf --mmproj mmproj-<…>.gguf \
+  -ngl 99 --n-cpu-moe 99 -c 32768 --jinja --host 0.0.0.0 --port 8080
 ```
-`.env`: `LLM_PROVIDER=ollama` (or only `IDEAS_LLM_PROVIDER=ollama` to brainstorm locally and write with Claude).
-The pipeline unloads the model (`keep_alive=0`) before the GPU stages.
 
-### 3.3 Local LLM: LM Studio / llama.cpp / vLLM
-Start the server's OpenAI-compatible endpoint, then set `LLM_PROVIDER=openai_compat`, `LLM_OPENAI_BASE_URL`, and `LLM_OPENAI_MODEL`.
-If the server rejects `response_format: json_schema`, set `LLM_OPENAI_RESPONSE_FORMAT=json_object` (or `none`).
+**Sharing the GPU with ComfyUI.** The LLM's VRAM share (shared layers + KV cache) stays allocated while the server runs,
+which competes with Flux/Wan on 16 GB. The pipeline is ordered to keep them apart: LLM stages for the whole batch first,
+the image check in batch rounds, ComfyUI after. To actually free VRAM between them, run the model behind
+**llama-swap** (a small proxy that starts/stops llama-server on demand) and set
+`LLM_OPENAI_UNLOAD_URL=http://<gpu-box>:8080/unload`. The model reloads on the next request. The experts are
+memory-mapped, so a reload mostly comes from page cache and is quick. If your setup copes without unloading, leave
+`LLM_OPENAI_UNLOAD_URL` empty.
 
----
+Thinking: Qwen models reason before answering by default. That's better for scripts and reviews, but slower. To turn it off:
+`LLM_OPENAI_EXTRA_BODY={"chat_template_kwargs": {"enable_thinking": false}}`.
+
+Test: `uv run shorts llm-test`. It should print 3 ideas as JSON.
+
+### 3.2 LM Studio / Ollama
+- **LM Studio:** enable the local server (default `http://<host>:1234/v1`), set `LLM_OPENAI_BASE_URL` and
+  `LLM_OPENAI_MODEL` to the model identifier LM Studio shows. Use LM Studio's idle auto-unload (TTL) to free VRAM.
+- **Ollama:** `LLM_PROVIDER=ollama`, `LLM_OLLAMA_MODEL=<tag>`. Unloading is built in (`keep_alive=0`).
+  Check that the tag's size fits your RAM + VRAM.
+
+### 3.3 Web search for the fact-check
+Local models have no built-in web search, so the review stage does it itself: the LLM writes search queries, a
+search provider runs them, the top pages are read, and the LLM checks each claim against those sources (cited in `review.json`).
+- `SEARCH_PROVIDER=ddgs` (default): no API key or server. Install with `uv sync --extra search`. Tries the backends
+  in `SEARCH_DDGS_BACKENDS` until one answers (some are blocked on some networks).
+- `SEARCH_PROVIDER=searxng`: self-hosted metasearch, more reliable for heavy use:
+  `docker run -d -p 8888:8080 searxng/searxng`, enable `json` under `search.formats` in its `settings.yml`, then
+  set `SEARCH_SEARXNG_URL`.
+
+### 3.4 Claude (optional, paid)
+The Claude API is billed **separately** from Claude.ai / Claude Code subscriptions: pay-as-you-go with its own API key
+and credits at console.anthropic.com. To use it for some stages: `uv sync --extra claude`, set `ANTHROPIC_API_KEY`,
+then e.g. `REVIEW_LLM_PROVIDER=claude` (it has native web search) and keep everything else local.
 
 ## 4. Voice
 
@@ -231,20 +261,20 @@ uv run shorts comfy test-motion comfy_test.png --prompt "waves crash, light beam
 
 ## 8. Quality gates
 
-**Script review** (stage `review`, after `script`): Claude fact-checks every claim with **web search**, then scores
+**Script review** (stage `review`, after `script`): the LLM fact-checks every claim against **web search** results (§3.3), then scores
 the script and returns a revised version. Up to `REVIEW_MAX_ROUNDS` rounds until the score is ≥ `REVIEW_MIN_SCORE`
 with no incorrect claims.
 - Results: `runs/<run>/review.json` (claims, verdicts, sources, problems), `script.original.json` (first draft).
 - If the score stays low, the run stops with a message. Read `review.json`, optionally edit `script.json`, then
   `shorts accept <run>` and `shorts resume <run>`. Or set `REVIEW_ON_LOW_SCORE=continue`.
-- Web search is billed per search on top of tokens (see Anthropic pricing). `LLM_CLAUDE_WEB_SEARCH_MAX_USES` caps it.
-  With a local LLM (no web search) the reviewer checks facts from its own knowledge and the log says so.
+- With `SEARCH_PROVIDER=none` the reviewer checks facts from its own knowledge only (the log warns).
 
 **Image QA** (inside `images`): a vision model checks each keyframe for text/watermarks, artifacts and prompt match.
 Bad ones are re-rolled up to `IMAGE_QA_MAX_RETRIES` times, and the best candidate is kept (others in `images/candidates/`).
-- Claude does this by default. Locally: `IMAGE_QA_LLM_PROVIDER=ollama` + `LLM_OLLAMA_VISION_MODEL=qwen2.5vl:7b`.
-  Mind the VRAM if Ollama shares the GPU with ComfyUI.
-- Cost with Claude: one small image (~1–1.5k input tokens) + a short JSON answer per check.
+- Runs in batch rounds: generate all images → free ComfyUI → check all → free the LLM → re-roll the rejected ones.
+  So a local model swaps in/out once per round, not once per image.
+- Needs a vision-capable LLM (Qwen3.8-Flash-Next with `--mmproj`, or a small one such as Qwen-VL via
+  `IMAGE_QA_LLM_PROVIDER`).
 
 ## 9. YouTube upload
 
@@ -287,5 +317,7 @@ Compare providers by keeping several env files (`.env.claude`, `.env.ollama`, �
 | I2V out of memory | Lower `MOTION_WIDTH/HEIGHT`, use GGUF experts, or `MOTION_SCENES=first:2`; failed scenes fall back to Ken Burns automatically |
 | Captions in the wrong font | The font isn't in `assets/fonts/` or `CAPTION_FONT` isn't the exact family name |
 | Run stopped at `review` | Script scored below `REVIEW_MIN_SCORE`: read `review.json`, then `shorts accept <run>` + `shorts resume <run>`, or `--force script` |
-| `image QA disabled: … no vision support` | Point `IMAGE_QA_LLM_PROVIDER` at Claude or an Ollama vision model |
+| `image QA disabled: … no vision support` | Load the model's `--mmproj`, or point `IMAGE_QA_LLM_PROVIDER` at a vision model |
+| `no search results … ` | The network blocks some backends: reorder `SEARCH_DDGS_BACKENDS`, or use SearXNG |
+| ComfyUI out of memory right after LLM stages | The LLM still holds VRAM: set `LLM_OPENAI_UNLOAD_URL` (llama-swap) or stop the server between stages |
 | Voice sounds off / wrong words | Better reference clip with an exact `TTS_F5_REF_TEXT`; spell numbers out in the script prompt |

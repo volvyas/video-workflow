@@ -116,9 +116,9 @@ class Provider(ABC):
 
 | Kind   | Name             | Notes |
 |--------|------------------|-------|
+| LLM    | `openai_compat`  | **Default.** Any OpenAI-compatible server: llama.cpp / llama-swap (Qwen3.8-Flash-Next on the GPU box), LM Studio, vLLM. Optional `UNLOAD_URL` hook frees VRAM before ComfyUI stages |
 | LLM    | `claude`         | Anthropic SDK, structured JSON outputs, default model `claude-opus-5-5`, server-side refusal fallback |
 | LLM    | `ollama`         | Local. Native `/api/chat` with JSON-schema `format`, `keep_alive=0` on unload |
-| LLM    | `openai_compat`  | Any OpenAI-compatible local server: LM Studio, llama.cpp server, vLLM |
 | LLM    | `mock`           | Deterministic canned JSON |
 | TTS    | `f5`             | F5-TTS voice cloning from a reference clip, runs in-process on the local GPU |
 | TTS    | `kokoro`         | Kokoro-82M, Apache-2.0, preset voices (no cloning); fast even on CPU |
@@ -130,6 +130,7 @@ class Provider(ABC):
 | Motion | `comfyui_i2v`    | **Mode B**: image-to-video workflow (Wan 2.2 I2V, LTX…) from `workflows/*.json` |
 | Align  | `faster_whisper` | Word-level timestamps from the actual audio |
 | Align  | `proportional`   | No deps: spreads words over the audio duration by character count |
+| Search | `ddgs`, `searxng`, `mock` | Web search for the fact-check when the LLM has none (local models) |
 | Upload | `youtube`        | YouTube Data API v3, OAuth, private/scheduled uploads |
 | Upload | `none`           | Leaves the video in the run folder |
 
@@ -213,6 +214,22 @@ you've watched it. Single scenes can be regenerated with `shorts redo <run> --st
 its dependents (`run.py: DEPENDENTS`) and rebuilds them.
 
 ---
+
+## 6b. Fact-check research flow
+
+`stages/research.py`: if the review LLM has native web search (`supports_web_search`, Claude), it calls `research()`.
+Otherwise, when `SEARCH_PROVIDER` is set: the LLM writes `REVIEW_SEARCH_QUERIES` queries (`SearchQueries` schema) →
+the search provider returns `REVIEW_SEARCH_RESULTS` hits per query → the top `REVIEW_FETCH_PAGES` pages are fetched and
+reduced to text → everything goes into the review prompt, which must cite a source URL per claim.
+
+## 6c. GPU sharing (local LLM + ComfyUI on one 16 GB card)
+
+- Stages run batch-wide, so all LLM work (script, review) finishes before any ComfyUI work. `ctx.unload("llm")` runs
+  after `review`.
+- `images` is a **batch stage** (`pipeline._BATCH`). It works in rounds across all runs: generate → unload image provider →
+  QA with the LLM → unload the LLM → re-roll rejects. Unloads are skipped when the QA LLM is `remote` (hosted API).
+- What "unload" does depends on the provider: Ollama `keep_alive=0`, OpenAI-compatible `UNLOAD_URL` (e.g. llama-swap
+  `/unload`), ComfyUI `/free`, in-process models deleted plus `torch.cuda.empty_cache()`.
 
 ## 7. ComfyUI integration
 
