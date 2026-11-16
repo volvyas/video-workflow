@@ -23,6 +23,8 @@ Suggestions made during design, with their status. ✅ done · 🔄 in progress 
 | 6a | **Multi-language versions**: same visuals, translated script and voice, separate channel or multi-audio track | Cheap extra reach | ⬜ |
 | 6b | **TikTok / Instagram Reels uploaders** | Same video, more platforms (their APIs need an app review) | ⬜ |
 | 7a | **Claude cost**: Message Batches API (50% off, async, ≤24 h) for batches; prompt caching for the stable system prompts | Lower API bill | ⬜ |
+| 7a2 | **Per-stage Claude model**: e.g. Opus for script/review, Haiku for image QA. Today `LLM_CLAUDE_MODEL` applies to every stage that uses Claude | Image QA runs up to 30×/video; Haiku costs ~1/40 of Opus per token | ⬜ |
+| 7a3 | **Spend cap**: set a monthly spend limit in the Claude Console | Protects against a runaway batch | ⬜ your action |
 | 7b | **A/B LLMs**: e.g. `IDEAS_LLM_PROVIDER=ollama` vs Claude for a week | Data-driven provider choice | ⬜ (supported via `-e` env files) |
 | 7c | **YouTube policy hygiene**: vary formats (top-3, myth vs fact, "what if…"), consider your own voice as the cloning reference | YPP excludes repetitive/mass-produced content | ⬜ |
 
