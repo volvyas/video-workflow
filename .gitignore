@@ -9,6 +9,7 @@ ideas/
 secrets/
 assets/voices/*
 assets/music/*
+assets/sfx/*
 assets/fonts/*
 !assets/**/.gitkeep
 comfy_test.png
