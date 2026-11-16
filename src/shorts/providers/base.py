@@ -35,6 +35,8 @@ class Provider(ABC):
     name: ClassVar[str]
     env_prefix: ClassVar[str] = ""
     Settings: ClassVar[type[BaseModel]] = NoSettings
+    # Shown as a warning by `shorts check` when the default model can't be used commercially.
+    license_note: ClassVar[str | None] = None
 
     def __init__(self, settings: BaseModel, app: "AppSettings"):
         self.settings = settings
@@ -60,10 +62,19 @@ class Provider(ABC):
 
 class LLMProvider(Provider):
     kind = "llm"
+    supports_vision: ClassVar[bool] = False
 
     @abstractmethod
-    def generate_json(self, *, system: str, prompt: str, schema: type[T]) -> T:
-        """Return an instance of `schema` produced by the model."""
+    def generate_json(self, *, system: str, prompt: str, schema: type[T], images: list[Path] | None = None) -> T:
+        """Return an instance of `schema` produced by the model. `images` requires a vision-capable model."""
+
+    @property
+    def supports_web_search(self) -> bool:
+        return False
+
+    def research(self, *, system: str, prompt: str) -> str:
+        """Free-text answer grounded in a live web search. Only when supports_web_search is True."""
+        raise NotImplementedError(f"{self.describe()} has no web search")
 
 
 class TTSProvider(Provider):

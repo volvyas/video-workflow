@@ -19,6 +19,9 @@ Each task ends in something runnable or testable. Tasks are in dependency order.
 | 11 | **Pipeline & CLI**: batch stage-by-stage orchestration, unload between stages, resume/`--force`, `redo` single scene | ✅ | `shorts make --topic … --count 2` with mock providers end to end |
 | 12 | **YouTube uploader**: OAuth flow, upload with metadata, privacy/schedule, synthetic-content flag | 🔄 ² | `shorts upload <run>` works with a real channel |
 | 15 | **ComfyUI TTS provider**: `TTS_PROVIDER=comfyui`, generic workflow with `{{text}}`/`{{ref_audio}}`/`{{ref_text}}`, starter workflow for ComfyUI-F5-TTS | ✅ ² | Simulated-ComfyUI test passes; real node run on the GPU box |
+| 16 | **Licenses**: LICENSES.md, `license_note` warnings in `shorts check`, Kokoro provider (Apache-2.0); Chatterbox via ComfyUI (pip pins torch 2.6 → no RTX 50xx) | ✅ | Kokoro verified on real GPU |
+| 17 | **Quality gates**: `review` stage (web-search fact-check + critique + revision rounds, `accept`), image QA with re-rolls, vision input for all LLM providers | ✅ ¹ | Mock e2e tests pass; live Claude run pending |
+| 18 | **Retention**: loop ending + pattern-interrupt rules, per-video `visual_style`, SFX on cuts | ✅ | Mock e2e tests pass |
 | 13 | **Real-hardware bring-up** on the 5070 Ti: install F5/ComfyUI models, export real workflows, tune defaults | ⬜ | First real Short produced |
 | 14 | **Evaluation helpers**: `--env-file` A/B runs, per-run cost/time report in manifest | ⬜ | `shorts report` compares runs |
 

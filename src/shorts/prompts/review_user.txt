@@ -1,0 +1,9 @@
+Topic: $topic
+
+Fact-check notes (from a web search; may be empty if unavailable):
+$research
+
+If there are no fact-check notes, check the claims yourself and mark anything you are not sure about as unverifiable.
+
+Script to review (JSON):
+<script>$script</script>

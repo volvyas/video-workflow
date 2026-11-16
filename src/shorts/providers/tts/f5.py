@@ -32,6 +32,10 @@ class F5TTSProvider(TTSProvider):
     env_prefix = "TTS_F5_"
     Settings = F5Settings
     settings: F5Settings
+    license_note = (
+        "official F5-TTS weights are CC-BY-NC-4.0 (non-commercial) because of the Emilia training data; "
+        "not for a monetized channel. See docs/LICENSES.md"
+    )
 
     def __init__(self, settings, app):
         super().__init__(settings, app)

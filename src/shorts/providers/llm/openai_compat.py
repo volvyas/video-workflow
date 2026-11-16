@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import httpx
 from pydantic import SecretStr, ValidationError
 
 from shorts.providers.base import LLMProvider, ProviderError, ProviderSettings, T
+from shorts.providers.llm._images import encode_jpeg_b64
 from shorts.providers.llm._schema import extract_json, schema_instructions, strict_schema
 
 
@@ -25,6 +28,7 @@ class OpenAICompatLLM(LLMProvider):
     env_prefix = "LLM_OPENAI_"
     Settings = OpenAICompatSettings
     settings: OpenAICompatSettings
+    supports_vision = True  # if the served model is a vision model
 
     def __init__(self, settings, app):
         super().__init__(settings, app)
@@ -37,14 +41,19 @@ class OpenAICompatLLM(LLMProvider):
     def describe(self) -> str:
         return f"openai_compat:{self.settings.model}"
 
-    def generate_json(self, *, system: str, prompt: str, schema: type[T]) -> T:
+    def generate_json(self, *, system: str, prompt: str, schema: type[T], images: list[Path] | None = None) -> T:
+        text = f"{prompt}\n\n{schema_instructions(schema)}"
+        user_content: str | list = text
+        if images:
+            user_content = [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{encode_jpeg_b64(p)}"}}
+                            for p in images] + [{"type": "text", "text": text}]
         body: dict = {
             "model": self.settings.model,
             "temperature": self.settings.temperature,
             "max_tokens": self.settings.max_tokens,
             "messages": [
                 {"role": "system", "content": system},
-                {"role": "user", "content": f"{prompt}\n\n{schema_instructions(schema)}"},
+                {"role": "user", "content": user_content},
             ],
         }
         mode = self.settings.response_format

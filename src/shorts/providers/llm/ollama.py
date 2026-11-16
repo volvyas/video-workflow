@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import httpx
 from pydantic import ValidationError
 
 from shorts.providers.base import LLMProvider, ProviderError, ProviderSettings, T
+from shorts.providers.llm._images import encode_jpeg_b64
 from shorts.providers.llm._schema import extract_json, schema_instructions, strict_schema
 
 
@@ -18,6 +21,7 @@ class OllamaSettings(ProviderSettings):
     think: bool | None = False  # disable reasoning traces on thinking models (qwen3, deepseek-r1)
     timeout: float = 600
     retries: int = 2  # re-ask when the output fails validation
+    vision_model: str = ""  # model for image checks (e.g. qwen2.5vl:7b, gemma3:12b); "" = use `model`
 
 
 class OllamaLLM(LLMProvider):
@@ -25,6 +29,7 @@ class OllamaLLM(LLMProvider):
     env_prefix = "LLM_OLLAMA_"
     Settings = OllamaSettings
     settings: OllamaSettings
+    supports_vision = True  # if the configured model is a vision model
 
     def __init__(self, settings, app):
         super().__init__(settings, app)
@@ -33,16 +38,19 @@ class OllamaLLM(LLMProvider):
     def describe(self) -> str:
         return f"ollama:{self.settings.model}"
 
-    def generate_json(self, *, system: str, prompt: str, schema: type[T]) -> T:
+    def generate_json(self, *, system: str, prompt: str, schema: type[T], images: list[Path] | None = None) -> T:
+        user: dict = {"role": "user", "content": f"{prompt}\n\n{schema_instructions(schema)}"}
+        if images:
+            user["images"] = [encode_jpeg_b64(p) for p in images]
         body = {
-            "model": self.settings.model,
+            "model": (self.settings.vision_model or self.settings.model) if images else self.settings.model,
             "stream": False,
             "format": strict_schema(schema),
             "keep_alive": self.settings.keep_alive,
             "options": {"temperature": self.settings.temperature, "num_ctx": self.settings.num_ctx},
             "messages": [
                 {"role": "system", "content": system},
-                {"role": "user", "content": f"{prompt}\n\n{schema_instructions(schema)}"},
+                user,
             ],
         }
         if self.settings.think is not None:
@@ -64,7 +72,8 @@ class OllamaLLM(LLMProvider):
         raise ProviderError(f"ollama returned invalid output after retries: {last_err}")
 
     def unload(self) -> None:
-        try:
-            self._http.post("/api/generate", json={"model": self.settings.model, "keep_alive": 0})
-        except httpx.HTTPError as e:
-            self.log.debug("ollama unload failed: %s", e)
+        for model in {self.settings.model, self.settings.vision_model} - {""}:
+            try:
+                self._http.post("/api/generate", json={"model": model, "keep_alive": 0})
+            except httpx.HTTPError as e:
+                self.log.debug("ollama unload failed: %s", e)

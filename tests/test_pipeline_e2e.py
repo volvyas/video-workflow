@@ -1,0 +1,80 @@
+"""End-to-end pipeline runs with mock providers (small frame size to keep it fast)."""
+
+import json
+
+import pytest
+
+from shorts import pipeline
+from shorts.config import Env
+from shorts.context import Context
+from shorts.media import ffmpeg
+from shorts.stages import ideas
+from shorts.stages.review import accept
+
+
+def make_ctx(tmp_path, **extra) -> Context:
+    music, sfx = tmp_path / "music", tmp_path / "sfx"
+    music.mkdir(exist_ok=True)
+    sfx.mkdir(exist_ok=True)
+    ffmpeg.run(["-f", "lavfi", "-i", "sine=frequency=330:duration=3", music / "m.mp3"])
+    ffmpeg.run(["-f", "lavfi", "-i", "sine=frequency=900:duration=0.3", sfx / "whoosh.wav"])
+    values = {
+        "LLM_PROVIDER": "mock", "TTS_PROVIDER": "mock", "ALIGN_PROVIDER": "proportional",
+        "IMAGE_PROVIDER": "mock", "MOTION_PROVIDER": "mock", "MOTION_FALLBACK": "kenburns",
+        "LLM_MOCK_SCENES": "3", "VIDEO_WIDTH": "216", "VIDEO_HEIGHT": "384", "IMAGE_WIDTH": "216",
+        "IMAGE_HEIGHT": "384", "RUNS_DIR": str(tmp_path / "runs"), "IDEAS_DIR": str(tmp_path / "ideas"),
+        "MUSIC_DIR": str(music), "SFX_DIR": str(sfx), "CAPTION_FONT_SIZE": "20", "SEED": "1",
+    }
+    values.update({k.upper(): str(v) for k, v in extra.items()})
+    return Context(Env(values))
+
+
+def new_run(ctx):
+    ideas.generate_ideas(ctx, "space", 1)
+    return pipeline.create_runs(ctx, "space", ideas.take_unused(ctx.app, "space", 1))[0]
+
+
+def test_full_pipeline_with_review_and_qa(tmp_path):
+    ctx = make_ctx(tmp_path)
+    run = new_run(ctx)
+    status = pipeline.execute(ctx, [run])
+    assert status[run.id] == "ok", status
+    assert run.final_video.exists()
+    assert (run.path / "script.original.json").exists()
+    rounds = json.loads((run.path / "review.json").read_text())
+    assert rounds[0]["research"].startswith("Mock research")  # web-search step ran
+    assert run.stage("review").notes["score"] == 8
+    assert set(run.stage("images").notes["qa"]) == {"1", "2", "3"}
+    assert "visual_style" in json.loads((run.path / "script.json").read_text())
+    assert ffmpeg.duration(run.final_video) == pytest.approx(sum(t.slot for t in run.timings()), abs=0.15)
+
+
+def test_low_review_score_stops_until_accepted(tmp_path):
+    ctx = make_ctx(tmp_path, llm_mock_review_score=4, review_max_rounds=2)
+    run = new_run(ctx)
+    status = pipeline.execute(ctx, [run])
+    assert status[run.id].startswith("review:")
+    assert len(json.loads((run.path / "review.json").read_text())) == 2  # retried once
+    assert not run.final_video.exists()
+
+    accept(run)
+    assert pipeline.execute(ctx, [run])[run.id] == "ok"
+    assert run.final_video.exists()
+
+
+def test_bad_images_are_rerolled(tmp_path):
+    ctx = make_ctx(tmp_path, llm_mock_image_score=3, image_qa_max_retries=2, llm_mock_scenes=1)
+    run = new_run(ctx)
+    assert pipeline.execute(ctx, [run], ["script", "review", "images"])[run.id] == "ok"
+    tries = run.stage("images").notes["qa"]["1"]
+    assert [t["try"] for t in tries] == [1, 2, 3]
+    assert (run.path / "images" / "scene_01.png").exists()
+    assert len(list((run.path / "images" / "candidates").glob("*.png"))) == 2
+
+
+def test_review_can_be_disabled(tmp_path):
+    ctx = make_ctx(tmp_path, review_enabled="false", image_qa_enabled="false")
+    run = new_run(ctx)
+    assert pipeline.execute(ctx, [run], ["script", "review", "images"])[run.id] == "ok"
+    assert not (run.path / "review.json").exists()
+    assert "qa" not in run.stage("images").notes or not run.stage("images").notes["qa"]

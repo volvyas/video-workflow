@@ -6,8 +6,10 @@ Write a narration script split into scenes for a vertical 9:16 video.
 Rules for the narration:
 - Total spoken length about $seconds seconds (roughly $words words at a fast, energetic pace).
 - Scene 1 is the hook: one punchy sentence that makes the viewer need the answer. No greetings, no "in this video".
-- Short sentences, conversational, concrete. Deliver the payoff before the end; finish with a short twist or
-  a line that makes the viewer want to replay, comment or follow. No "like and subscribe".
+- Short sentences, conversational, concrete. Something new every 2–3 seconds (a number, a twist, a reveal).
+- Deliver the payoff before the end. No "like and subscribe".
+- LOOP: write the last sentence so it flows naturally back into the first one when the video repeats
+  (e.g. ends with a half-sentence that the hook completes, or circles back to the opening question).
 - Facts must be accurate. If unsure, leave it out.
 - Spell out numbers and symbols the way they should be spoken (e.g. "two thousand twenty four", "percent").
 - Language: $language.
@@ -16,7 +18,11 @@ Rules for scenes:
 - $min_scenes to $max_scenes scenes; each scene is one or two sentences, 2.5–6 seconds of speech.
 - image_prompt: a self-contained, detailed description for a text-to-image model (subject, setting, lighting,
   camera angle, composition for a tall vertical frame). Never ask for text, letters, logos or real people.
-  Always write image prompts in English. Keep a consistent look; the global style "$style" is appended automatically.
+  Always write image prompts in English. Do NOT repeat style words in each prompt: put the shared look in
+  visual_style instead.
+- visual_style: one consistent look for this whole video (medium, color palette, lighting, lens/camera), in
+  English, max 25 words. It's appended to every image prompt together with the channel style "$style".
+- Make scene 1 the most striking image of the video.
 - motion_prompt: one short English sentence describing natural motion in that image for an image-to-video model
   (e.g. "slow push-in, dust particles drifting, flickering light").
 - camera: the best still-image camera move for the scene.

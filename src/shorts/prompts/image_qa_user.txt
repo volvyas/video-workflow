@@ -1,0 +1,7 @@
+The image was generated from this prompt:
+$prompt
+
+This scene's narration (for context):
+$narration
+
+Evaluate the attached image.

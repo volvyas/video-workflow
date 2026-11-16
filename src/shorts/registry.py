@@ -25,6 +25,7 @@ BUILTINS: dict[str, dict[str, str]] = {
     "tts": {
         "f5": "shorts.providers.tts.f5:F5TTSProvider",
         "comfyui": "shorts.providers.tts.comfyui:ComfyTTS",
+        "kokoro": "shorts.providers.tts.kokoro:KokoroTTS",
         "mock": "shorts.providers.tts.mock:MockTTS",
     },
     "align": {

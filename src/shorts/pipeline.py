@@ -10,18 +10,18 @@ from shorts.context import Context
 from shorts.media.assemble import assemble
 from shorts.models import StoredIdea
 from shorts.run import STAGES, Run
-from shorts.stages import align, ideas, script, visuals, voice
+from shorts.stages import align, ideas, review, script, visuals, voice
 
 log = logging.getLogger("shorts.pipeline")
 
 # stages that run during `make`; upload is separate (review gate)
-BUILD_STAGES = ["script", "voice", "align", "images", "motion", "assemble"]
+BUILD_STAGES = ["script", "review", "voice", "align", "images", "motion", "assemble"]
 
 
 def _provider_name(ctx: Context, stage: str) -> str:
     a = ctx.app
     return {
-        "script": a.llm_for("script"), "voice": a.tts_provider, "align": a.align_provider,
+        "script": a.llm_for("script"), "review": a.llm_for("review"), "voice": a.tts_provider, "align": a.align_provider,
         "images": a.image_provider, "motion": f"{a.motion_provider}->{a.motion_fallback}",
         "assemble": "ffmpeg", "upload": a.uploader,
     }.get(stage, "")
@@ -30,6 +30,7 @@ def _provider_name(ctx: Context, stage: str) -> str:
 def _runner(stage: str) -> Callable[[Context, Run, set[int] | None], object]:
     return {
         "script": lambda c, r, o: script.write_script(c, r),
+        "review": lambda c, r, o: review.review_script(c, r),
         "voice": voice.synthesize,
         "align": lambda c, r, o: align.align(c, r),
         "images": visuals.generate_images,
@@ -39,7 +40,7 @@ def _runner(stage: str) -> Callable[[Context, Run, set[int] | None], object]:
 
 
 # stage -> provider kind to unload after the stage finishes for the whole batch
-_UNLOAD_AFTER = {"script": "llm", "voice": "tts", "align": "align", "images": "image", "motion": "motion"}
+_UNLOAD_AFTER = {"review": "llm", "voice": "tts", "align": "align", "images": "image", "motion": "motion"}
 
 
 def create_runs(ctx: Context, topic: str, picked: list[StoredIdea]) -> list[Run]:

@@ -152,6 +152,16 @@ def redo(
 
 
 @app.command()
+def accept(runs: list[Path]):
+    """Accept the current script.json of run(s) after a failed/low-score review, so `resume` continues."""
+    from shorts.stages.review import accept as accept_review
+
+    for r in _runs(runs):
+        accept_review(r)
+        typer.echo(f"accepted script of {r.id}; now run: shorts resume {r.id}")
+
+
+@app.command()
 def status(runs: Annotated[Optional[list[Path]], typer.Argument()] = None):
     """Show stage status of runs (default: the 15 most recent)."""
     from shorts.run import STAGES, Run
@@ -235,6 +245,8 @@ def check(
             p = c.provider(kind, name)
             p.verify()
             typer.secho(f"✔ {kind:7s} {p.describe()}", fg="green")
+            if p.license_note and not (kind == "tts" and p.name == "f5" and getattr(p.settings, "ckpt_file", "")):
+                typer.secho(f"  ⚠ license: {p.license_note}", fg="yellow")
         except Exception as e:  # noqa: BLE001
             ok = False
             typer.secho(f"✘ {kind:7s} {name}: {e}", fg="red")

@@ -20,6 +20,17 @@ def _filter_escape(path: Path) -> str:
     return str(path).replace("\\", "/").replace(":", r"\:").replace("'", r"\'")
 
 
+def pick_sfx(app: AppSettings, seed: int, count: int) -> list[Path]:
+    d = app.sfx_dir
+    if count <= 0 or not d or not Path(d).is_dir():
+        return []
+    files = sorted(p for p in Path(d).iterdir() if p.suffix.lower() in _MUSIC_EXT)
+    if not files:
+        return []
+    rnd = random.Random(seed + 7)
+    return [rnd.choice(files) for _ in range(count)]
+
+
 def pick_music(app: AppSettings, seed: int) -> Path | None:
     d = app.music_dir
     if not d or not Path(d).is_dir():
@@ -64,6 +75,11 @@ def assemble(app: AppSettings, run: Run, clips: list[Path]) -> Path:
     music = pick_music(app, run.manifest.seed)
     if music:
         args += ["-stream_loop", "-1", "-i", music]
+    cuts = [t.start for t in timings[1:]]  # a whoosh on every scene change
+    sfx = pick_sfx(app, run.manifest.seed, len(cuts))
+    sfx_first_input = 3 if music else 2
+    for f in sfx:
+        args += ["-i", f]
 
     vf = "[0:v]null[v]"
     if app.captions_enabled:
@@ -75,19 +91,32 @@ def assemble(app: AppSettings, run: Run, clips: list[Path]) -> Path:
         vf = f"[0:v]{sub}[v]"
 
     loud = "loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000"
+    parts, mix = [], []
     if music:
-        af = (
-            f"[1:a]aresample=48000,asplit=2[voice][key];"
-            f"[2:a]aresample=48000,volume={app.music_volume}[m];"
-            f"[m][key]sidechaincompress=threshold=0.03:ratio=6:attack=15:release=350[duck];"
-            f"[voice][duck]amix=inputs=2:duration=first:normalize=0,{loud}[a]"
-        )
+        parts += [
+            "[1:a]aresample=48000,asplit=2[voice][key]",
+            f"[2:a]aresample=48000,volume={app.music_volume}[m]",
+            "[m][key]sidechaincompress=threshold=0.03:ratio=6:attack=15:release=350[duck]",
+        ]
+        mix += ["[voice]", "[duck]"]
     else:
-        af = f"[1:a]aresample=48000,{loud}[a]"
+        parts.append("[1:a]aresample=48000[voice]")
+        mix.append("[voice]")
+    for k, (f, cut) in enumerate(zip(sfx, cuts)):
+        delay = max(0, int((cut - app.sfx_lead) * 1000))
+        parts.append(f"[{sfx_first_input + k}:a]aresample=48000,aformat=channel_layouts=mono,"
+                     f"volume={app.sfx_volume},adelay=delays={delay}:all=1[s{k}]")
+        mix.append(f"[s{k}]")
+    if len(mix) > 1:
+        parts.append(f"{''.join(mix)}amix=inputs={len(mix)}:duration=first:normalize=0,{loud}[a]")
+    else:
+        parts.append(f"[voice]{loud}[a]")
+    af = ";".join(parts)
 
     out = run.final_video
     ffmpeg.run([*args, "-filter_complex", f"{vf};{af}", "-map", "[v]", "-map", "[a]", "-t", f"{total:.3f}",
                 "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p",
                 "-r", str(app.video_fps), "-c:a", "aac", "-ar", "48000", "-b:a", "192k", "-movflags", "+faststart", out])
-    log.info("[%s] final video: %s (%.1fs%s)", run.id, out, total, f", music: {music.name}" if music else "")
+    log.info("[%s] final video: %s (%.1fs%s%s)", run.id, out, total, f", music: {music.name}" if music else "",
+             f", {len(sfx)} sfx" if sfx else "")
     return out

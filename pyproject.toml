@@ -18,6 +18,7 @@ claude = [
 ]
 # TTS providers (heavy: pulls torch). Install on the GPU machine.
 f5 = ["f5-tts>=1.1", "torch", "torchaudio"]
+kokoro = ["kokoro>=0.9.4", "soundfile", "torch"]
 # Caption alignment
 whisper = ["faster-whisper>=1.0"]
 # Bundled ffmpeg binary if system ffmpeg is not installed

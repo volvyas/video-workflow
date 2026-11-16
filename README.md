@@ -1,6 +1,6 @@
 # shorts: automated YouTube Shorts pipeline
 
-Topic → ideas → script → voice → captions → visuals (stills + Ken Burns, or image-to-video) → `final.mp4` → YouTube.
+Topic → ideas → script → fact-check & review → voice → captions → visuals (stills + Ken Burns, or image-to-video) → `final.mp4` → YouTube.
 
 Every external piece (LLM, TTS, image, motion, aligner, uploader) is a provider you select in `.env`.
 Switching providers needs only a restart.
@@ -15,3 +15,5 @@ uv run shorts make "black holes" -n 3
 - [docs/SETUP.md](docs/SETUP.md): installation, which models to download, ComfyUI workflows
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): design, provider interfaces, run folders
 - [docs/TASKS.md](docs/TASKS.md): task breakdown and status
+- [docs/LICENSES.md](docs/LICENSES.md): what's safe for a monetized channel
+- [docs/RECOMMENDATIONS.md](docs/RECOMMENDATIONS.md): improvement backlog

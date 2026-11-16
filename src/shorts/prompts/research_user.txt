@@ -1,0 +1,11 @@
+Fact-check the narration of this short video. For EVERY factual claim (numbers, dates, names, superlatives,
+cause-and-effect statements):
+1. Quote the claim.
+2. Verdict: correct / incorrect / unverifiable / opinion.
+3. If not correct: give an accurate replacement that keeps the same punchy tone and similar length.
+4. Give the best source URL.
+
+Topic: $topic
+
+Narration:
+$narration

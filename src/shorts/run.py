@@ -13,11 +13,12 @@ from pydantic import BaseModel, Field
 
 from shorts.models import Idea, Script, SceneTiming, WordTiming
 
-STAGES = ["script", "voice", "align", "images", "motion", "assemble", "upload"]
+STAGES = ["script", "review", "voice", "align", "images", "motion", "assemble", "upload"]
 
 # files/folders each stage produces (relative to the run folder)
 OUTPUTS: dict[str, list[str]] = {
-    "script": ["script.json"],
+    "script": ["script.json", "script.original.json"],
+    "review": ["review.json"],
     "voice": ["audio", "timings.json"],
     "align": ["words.json"],
     "images": ["images"],
@@ -28,7 +29,8 @@ OUTPUTS: dict[str, list[str]] = {
 
 # stages whose outputs become stale when a stage is re-run
 DEPENDENTS: dict[str, list[str]] = {
-    "script": ["voice", "align", "images", "motion", "assemble", "upload"],
+    "script": ["review", "voice", "align", "images", "motion", "assemble", "upload"],
+    "review": ["voice", "align", "images", "motion", "assemble", "upload"],
     "voice": ["align", "assemble", "upload"],
     "align": ["assemble", "upload"],
     "images": ["motion", "assemble", "upload"],

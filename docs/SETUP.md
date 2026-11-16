@@ -22,7 +22,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh   # uv package manager
 
 ```bash
 cd video-workflow
-uv sync --extra claude --extra f5 --extra whisper --extra youtube
+uv sync --extra claude --extra f5 --extra whisper --extra youtube   # or --extra kokoro instead of f5
 cp .env.example .env
 uv run pytest -q                 # offline tests
 uv run shorts providers          # shows available + selected providers
@@ -64,7 +64,21 @@ If the server rejects `response_format: json_schema`, set `LLM_OPENAI_RESPONSE_F
 
 ---
 
-## 4. Voice: F5-TTS
+## 4. Voice
+
+> **License:** the official F5-TTS weights are **non-commercial** (CC-BY-NC). For a monetized channel use
+> **Kokoro** (below) or **Chatterbox via ComfyUI**. See [LICENSES.md](LICENSES.md).
+
+### 4.0 Kokoro (`TTS_PROVIDER=kokoro`): Apache-2.0, simplest
+```bash
+uv sync --extra claude --extra kokoro --extra whisper
+```
+`.env`: `TTS_PROVIDER=kokoro`, `TTS_KOKORO_VOICE=am_michael` (voice list: `hexgrad/Kokoro-82M` → VOICES.md; the first letter
+is the language, e.g. `a` American, `b` British, `e` Spanish, `f` French). You can blend voices: `af_heart,am_michael`.
+The model (~330 MB) downloads on first use. Tested on an RTX 3050 laptop: ~0.1 s per sentence once loaded.
+No reference recording needed, but it can't clone a voice.
+
+### 4.0b F5-TTS (local)
 
 The model (`F5TTS_v1_Base`, ~1.3 GB) downloads from Hugging Face (`SWivid/F5-TTS`) on first use. It needs ~3 GB VRAM.
 
@@ -206,14 +220,33 @@ uv run shorts comfy test-motion comfy_test.png --prompt "waves crash, light beam
 
 ---
 
-## 7. Fonts & music
+## 7. Fonts, music & sound effects
 
 - **Caption font:** download *Montserrat* from Google Fonts and put `Montserrat-ExtraBold.ttf` in `assets/fonts/`.
   Any bold sans works; set `CAPTION_FONT` to the font's family name.
 - **Music:** put royalty-free tracks (e.g. from the YouTube Audio Library) in `assets/music/`. One is chosen per video
   and ducked under the voice automatically. Leave the folder empty for no music.
+- **Sound effects:** put a few short whoosh/swish/hit sounds (0.2–0.8 s, royalty-free, e.g. from freesound.org with CC0
+  or Pixabay) in `assets/sfx/`. One plays on every scene cut (`SFX_VOLUME`, `SFX_LEAD`). Empty folder = none.
 
-## 8. YouTube upload
+## 8. Quality gates
+
+**Script review** (stage `review`, after `script`): Claude fact-checks every claim with **web search**, then scores
+the script and returns a revised version. Up to `REVIEW_MAX_ROUNDS` rounds until the score is ≥ `REVIEW_MIN_SCORE`
+with no incorrect claims.
+- Results: `runs/<run>/review.json` (claims, verdicts, sources, problems), `script.original.json` (first draft).
+- If the score stays low, the run stops with a message. Read `review.json`, optionally edit `script.json`, then
+  `shorts accept <run>` and `shorts resume <run>`. Or set `REVIEW_ON_LOW_SCORE=continue`.
+- Web search is billed per search on top of tokens (see Anthropic pricing). `LLM_CLAUDE_WEB_SEARCH_MAX_USES` caps it.
+  With a local LLM (no web search) the reviewer checks facts from its own knowledge and the log says so.
+
+**Image QA** (inside `images`): a vision model checks each keyframe for text/watermarks, artifacts and prompt match.
+Bad ones are re-rolled up to `IMAGE_QA_MAX_RETRIES` times, and the best candidate is kept (others in `images/candidates/`).
+- Claude does this by default. Locally: `IMAGE_QA_LLM_PROVIDER=ollama` + `LLM_OLLAMA_VISION_MODEL=qwen2.5vl:7b`.
+  Mind the VRAM if Ollama shares the GPU with ComfyUI.
+- Cost with Claude: one small image (~1–1.5k input tokens) + a short JSON answer per check.
+
+## 9. YouTube upload
 
 1. <https://console.cloud.google.com> → new project → *APIs & Services* → enable **YouTube Data API v3**.
 2. *OAuth consent screen*: External, add your Google account as a **test user**.
@@ -229,11 +262,11 @@ Caveats:
 
 ---
 
-## 9. First real run
+## 10. First real run
 
 ```bash
 uv run shorts ideas "black holes" -n 10            # brainstorm; review ideas/black-holes.json
-uv run shorts make "black holes" -n 1 --until script   # check the script first
+uv run shorts make "black holes" -n 1 --until review   # draft + fact-check; read review.json
 uv run shorts resume runs/<run>                     # continue: voice → … → final.mp4
 uv run shorts redo runs/<run> --stage images --scene 3  # re-roll one bad scene
 uv run shorts make "black holes" -n 5               # batch (stage by stage, models load once)
@@ -243,7 +276,7 @@ uv run shorts upload runs/<run>
 
 Compare providers by keeping several env files (`.env.claude`, `.env.ollama`, …) and running `shorts -e .env.ollama make …`.
 
-## 10. Troubleshooting
+## 11. Troubleshooting
 
 | Symptom | Fix |
 |---|---|
@@ -253,4 +286,6 @@ Compare providers by keeping several env files (`.env.claude`, `.env.ollama`, �
 | `is a UI-format workflow` | Use *Export (API)*, not *Save* |
 | I2V out of memory | Lower `MOTION_WIDTH/HEIGHT`, use GGUF experts, or `MOTION_SCENES=first:2`; failed scenes fall back to Ken Burns automatically |
 | Captions in the wrong font | The font isn't in `assets/fonts/` or `CAPTION_FONT` isn't the exact family name |
+| Run stopped at `review` | Script scored below `REVIEW_MIN_SCORE`: read `review.json`, then `shorts accept <run>` + `shorts resume <run>`, or `--force script` |
+| `image QA disabled: … no vision support` | Point `IMAGE_QA_LLM_PROVIDER` at Claude or an Ollama vision model |
 | Voice sounds off / wrong words | Better reference clip with an exact `TTS_F5_REF_TEXT`; spell numbers out in the script prompt |

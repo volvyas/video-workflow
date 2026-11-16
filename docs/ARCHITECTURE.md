@@ -3,8 +3,8 @@
 Automated pipeline that turns a **topic** into finished **YouTube Shorts** (1080×1920, 15–60 s).
 
 ```
-topic ─► Ideas ─► Script ─► Voice ─► Align ─► Images ─► Motion ─► Assemble ─► Review ─► Upload
-          LLM      LLM       TTS     Aligner   Image     Motion    FFmpeg      human     Uploader
+topic ─► Ideas ─► Script ─► Review ─► Voice ─► Align ─► Images ─► Motion ─► Assemble ─► (human) ─► Upload
+          LLM      LLM      LLM+web    TTS     Aligner  Image+QA   Motion    FFmpeg                Uploader
 ```
 
 Every box with a provider name under it is a **pluggable provider**. Which implementation runs is
@@ -78,7 +78,11 @@ All in `shorts/providers/base.py`. Simplified signatures:
 
 ```python
 class LLMProvider(Provider):
-    def generate_json(self, *, system: str, prompt: str, schema: type[T]) -> T: ...
+    supports_vision: bool                     # can take images=[...]
+    supports_web_search: bool                 # implements research()
+    def generate_json(self, *, system: str, prompt: str, schema: type[T],
+                      images: list[Path] | None = None) -> T: ...
+    def research(self, *, system: str, prompt: str) -> str: ...   # web-grounded free text (Claude)
     # Returns a validated pydantic object. Each implementation uses its native
     # structured-output mechanism (Claude output_config json_schema, Ollama `format`,
     # OpenAI-compatible `response_format`) and re-validates with pydantic.
@@ -117,6 +121,7 @@ class Provider(ABC):
 | LLM    | `openai_compat`  | Any OpenAI-compatible local server: LM Studio, llama.cpp server, vLLM |
 | LLM    | `mock`           | Deterministic canned JSON |
 | TTS    | `f5`             | F5-TTS voice cloning from a reference clip, runs in-process on the local GPU |
+| TTS    | `kokoro`         | Kokoro-82M, Apache-2.0, preset voices (no cloning); fast even on CPU |
 | TTS    | `comfyui`        | Any TTS workflow in ComfyUI (starter: ComfyUI-F5-TTS node); the voice model runs on the ComfyUI machine |
 | TTS    | `mock`           | Silent WAV of estimated length |
 | Image  | `comfyui`        | Any text-to-image workflow (Flux, SDXL, Qwen-Image…) from `workflows/*.json` |
@@ -194,11 +199,12 @@ caption alignment.
 |----------|----------------|-------|
 | ideas    | topic → `ideas/<slug>.json` | LLM generates N ideas (hook, angle, why it's watchable) and dedupes against existing ones |
 | script   | idea → `script.json` | Target length `VIDEO_TARGET_SECONDS`; 6–12 scenes of 2.5–6 s; strong hook in the first 2 s; visual prompts carry `STYLE_PROMPT` |
+| review   | script → `review.json`, revised `script.json` (draft kept as `script.original.json`) | 1) `research()` fact-check with web search (Claude) 2) structured critique: claims with verdicts, score, hook score, problems, revised script. Repeats up to `REVIEW_MAX_ROUNDS` until score ≥ `REVIEW_MIN_SCORE` with no incorrect claims; otherwise stops the run (`shorts accept` to override) or continues (`REVIEW_ON_LOW_SCORE`) |
 | voice    | scenes → `audio/*.wav` | Per-scene TTS, then concatenated with `SCENE_GAP_MS` of silence |
 | align    | voice.wav + text → `words.json` | Word timings for captions |
-| images   | image prompts → `images/*.png` | Generated at `IMAGE_WIDTH×IMAGE_HEIGHT` (9:16-ish, model-native) |
+| images   | image prompts → `images/*.png` | Prompt = scene prompt + script `visual_style` + `STYLE_PROMPT`. With `IMAGE_QA_ENABLED`, a vision LLM checks each image (matches prompt, no text, no artifacts, score); failures are re-rolled with new seeds, and the best candidate is kept (others in `images/candidates/`); verdicts in the manifest |
 | motion   | images → `clips/*.mp4` | Primary/fallback per scene; target duration = scene audio length |
-| assemble | clips, voice, music, words → `final.mp4` | Scale/crop to 1080×1920 at 30 fps; fit clip to scene length (trim, or slow ≤1.25× then freeze the last frame); duck music under the voice; burn ASS captions |
+| assemble | clips, voice, music, sfx, words → `final.mp4` | Scale/crop to 1080×1920 at 30 fps; fit clip to scene length (trim, or slow ≤1.25× then freeze the last frame); duck music under the voice; a sound effect from `SFX_DIR` on every cut; loudness-normalize to −14 LUFS; burn ASS captions |
 | upload   | final.mp4 + meta → URL | Only with `--upload` or `AUTO_UPLOAD=true`; default privacy `private`; sets the synthetic-content flag |
 
 **Review gate:** by default the pipeline stops after `assemble`. `shorts upload <run>` publishes a video after

@@ -27,6 +27,8 @@ class AppSettings(BaseModel):
     llm_provider: str = "mock"
     ideas_llm_provider: str | None = None
     script_llm_provider: str | None = None
+    review_llm_provider: str | None = None
+    image_qa_llm_provider: str | None = None  # must be vision-capable
     tts_provider: str = "mock"
     align_provider: str = "proportional"
     image_provider: str = "mock"
@@ -41,6 +43,21 @@ class AppSettings(BaseModel):
     video_target_seconds: int = 40
     style_prompt: str = "cinematic, highly detailed, dramatic lighting, vertical composition"
     negative_prompt: str = "text, watermark, logo, blurry, lowres, deformed, extra fingers"
+
+    # --- quality gates --------------------------------------------------------
+    review_enabled: bool = True
+    review_web_search: bool = True  # fact-check with web search when the LLM provider supports it
+    review_min_score: int = 7
+    review_max_rounds: int = 2
+    review_on_low_score: str = "fail"  # fail (stop this run for human review) | continue
+    image_qa_enabled: bool = True
+    image_qa_min_score: int = 6
+    image_qa_max_retries: int = 2
+
+    # --- retention ------------------------------------------------------------
+    sfx_dir: Path | None = Path("assets/sfx")  # whooshes/hits played on scene cuts
+    sfx_volume: float = 0.35
+    sfx_lead: float = 0.12  # start the sound slightly before the cut
 
     # --- output format ------------------------------------------------------
     video_width: int = 1080
