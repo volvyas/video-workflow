@@ -55,21 +55,70 @@ If you already run it, keep your setup and point `.env` at it. Requirements:
   `IMAGE_QA_ENABLED=false` or point `IMAGE_QA_LLM_PROVIDER` at a small vision model.
 - Context ≥ 32k (`-c 32768`): the fact-check prompt carries search results.
 
-Typical llama.cpp launch (check flag names against your build; MoE expert offload keeps VRAM use low):
+#### Step 1: Start llama-server on the GPU box (manual, good for a first test)
 ```bash
-llama-server -m Qwen3.8-Flash-Next-<quant>.gguf --mmproj mmproj-<…>.gguf \
-  -ngl 99 --n-cpu-moe 99 -c 32768 --jinja --host 0.0.0.0 --port 8080
+llama-server \
+  -m /path/to/Qwen3.8-Flash-Next-<your-quant>.gguf \
+  --mmproj /path/to/mmproj-<…>.gguf \
+  --alias qwen3.8-flash-next \
+  -ngl 99 --n-cpu-moe 99 \
+  -c 32768 --jinja \
+  --host 0.0.0.0 --port 8080
 ```
 
-**Sharing the GPU with ComfyUI.** The LLM's VRAM share (shared layers + KV cache) stays allocated while the server runs,
-which competes with Flux/Wan on 16 GB. The pipeline is ordered to keep them apart: LLM stages for the whole batch first,
-the image check in batch rounds, ComfyUI after. To actually free VRAM between them, run the model behind
-**llama-swap** (a small proxy that starts/stops llama-server on demand) and set
-`LLM_OPENAI_UNLOAD_URL=http://<gpu-box>:8080/unload`. The model reloads on the next request. The experts are
-memory-mapped, so a reload mostly comes from page cache and is quick. If your setup copes without unloading, leave
-`LLM_OPENAI_UNLOAD_URL` empty.
+| Flag | Why |
+|---|---|
+| `--mmproj` | The vision part the image check needs. It's a separate `mmproj-*.gguf` file, usually in the same Hugging Face repo as the model. Without it, drop the line and set `IMAGE_QA_ENABLED=false` |
+| `--alias` | Model name the pipeline sends (`LLM_OPENAI_MODEL=qwen3.8-flash-next`) |
+| `-ngl 99 --n-cpu-moe 99` | Shared layers on the GPU, experts in RAM. This is how the 125B MoE fits in 16 GB VRAM. If other offload flags worked for you before, keep yours |
+| `-c 32768` | Context size: the fact-check prompt includes search results |
+| `--jinja` | Use the model's own chat template (needed for correct chat/JSON output) |
+| `--host 0.0.0.0` | Reachable from the laptop. Without it, llama-server only listens on the GPU box itself |
 
-Thinking: Qwen models reason before answering by default. That's better for scripts and reviews, but slower. To turn it off:
+If a firewall is on: `sudo ufw allow 8080`. Get the box's IP with `hostname -I`.
+
+#### Step 2: Check it from the orchestrator machine
+```bash
+curl http://<gpu-box-ip>:8080/health        # {"status":"ok"} once the model is loaded
+curl http://<gpu-box-ip>:8080/v1/models     # lists qwen3.8-flash-next
+```
+
+#### Step 3: Point the pipeline at it (`.env`)
+```
+LLM_PROVIDER=openai_compat
+LLM_OPENAI_BASE_URL=http://<gpu-box-ip>:8080/v1
+LLM_OPENAI_MODEL=qwen3.8-flash-next
+SEARCH_PROVIDER=ddgs
+```
+```bash
+uv run shorts llm-test                                # prints 3 ideas as JSON
+uv run shorts make "black holes" -n 1 --until review  # LLM-only stages; read runs/<run>/review.json
+```
+`--until review` stops before any ComfyUI stage, so plain llama-server can stay running without competing for VRAM.
+
+#### Step 4: Automatic unloading with llama-swap (for full runs)
+The LLM must leave VRAM before ComfyUI renders, and plain llama-server can't unload on request.
+**llama-swap** is a small proxy that starts llama-server when a request arrives and stops it on `GET /unload`
+(or after an idle `ttl`). The ready-made config is [`deploy/llama-swap.yaml`](../deploy/llama-swap.yaml); fill in your paths.
+
+```bash
+# on the GPU box (stop the manual llama-server first: llama-swap takes over port 8080)
+llama-swap --config deploy/llama-swap.yaml --listen 0.0.0.0:8080
+```
+`.env` keeps the same base URL and adds:
+```
+LLM_OPENAI_UNLOAD_URL=http://<gpu-box-ip>:8080/unload
+```
+The pipeline then unloads the LLM after the review stage and between image-check rounds. The first request after an
+unload waits for the reload, which is quick because the experts come back from RAM page cache.
+If your setup works without unloading, leave `LLM_OPENAI_UNLOAD_URL` empty.
+
+#### Troubleshooting
+- A flag is rejected: llama.cpp renames flags between builds, so check `llama-server --help`.
+- `shorts llm-test` fails with a JSON/schema error: set `LLM_OPENAI_RESPONSE_FORMAT=json_object`.
+- Answers are slow: thinking is on by default (see below). Turn it off for quick tests.
+
+**Thinking:** Qwen models reason before answering by default. That's better for scripts and reviews, but slower. To turn it off:
 `LLM_OPENAI_EXTRA_BODY={"chat_template_kwargs": {"enable_thinking": false}}`.
 
 Test: `uv run shorts llm-test`. It should print 3 ideas as JSON.

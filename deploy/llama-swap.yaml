@@ -1,0 +1,12 @@
+# llama-swap config for the GPU box. Run:  llama-swap --config deploy/llama-swap.yaml --listen 0.0.0.0:8080
+# It starts llama-server on the first request and stops it on GET /unload (the pipeline calls this before
+# ComfyUI stages when LLM_OPENAI_UNLOAD_URL is set) or after `ttl` seconds idle.
+# Adjust the paths. If your llama.cpp build rejects a flag, check `llama-server --help`.
+models:
+  qwen3.8-flash-next:
+    cmd: >
+      llama-server --port ${PORT}
+      -m /path/to/Qwen3.8-Flash-Next-QUANT.gguf
+      --mmproj /path/to/mmproj-QUANT.gguf
+      -ngl 99 --n-cpu-moe 99 -c 32768 --jinja
+    ttl: 600
