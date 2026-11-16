@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+runs/
+ideas/
+secrets/
+assets/voices/*
+assets/music/*
+assets/fonts/*
+!assets/**/.gitkeep
+comfy_test.png
+motion_test.mp4

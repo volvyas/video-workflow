@@ -1,0 +1,43 @@
+{
+  "1": {
+    "class_type": "LoadAudio",
+    "inputs": {
+      "audio": "{{ref_audio}}"
+    },
+    "_meta": {
+      "title": "Reference voice"
+    }
+  },
+  "2": {
+    "class_type": "F5TTSAudioInputs",
+    "inputs": {
+      "sample_audio": [
+        "1",
+        0
+      ],
+      "sample_text": "{{ref_text}}",
+      "speech": "{{text}}",
+      "seed": "{{seed}}",
+      "model": "F5v1",
+      "vocoder": "auto",
+      "speed": "{{speed}}",
+      "model_type": "F5TTS_v1_Base"
+    },
+    "_meta": {
+      "title": "F5-TTS Audio from inputs"
+    }
+  },
+  "3": {
+    "class_type": "SaveAudio",
+    "inputs": {
+      "audio": [
+        "2",
+        0
+      ],
+      "filename_prefix": "{{filename_prefix}}"
+    },
+    "_meta": {
+      "title": "Save Audio"
+    }
+  }
+}

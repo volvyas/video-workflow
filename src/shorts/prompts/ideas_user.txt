@@ -1,0 +1,6 @@
+Topic: $topic
+
+Generate $count new, distinct video ideas for this topic.
+
+Do NOT repeat or closely resemble any of these existing ideas:
+$existing

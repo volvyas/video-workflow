@@ -1,0 +1,6 @@
+Topic: $topic
+Title: $title
+Hook: $hook
+Angle: $angle
+
+Write the script.
