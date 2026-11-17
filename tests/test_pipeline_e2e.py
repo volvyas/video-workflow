@@ -110,3 +110,24 @@ def test_images_batch_unloads_between_rounds_for_local_llm(tmp_path):
     assert seq[:4] == ["llm", "image", "llm", "image"]  # (first "llm" is the end of the review stage)
     for r in runs:
         assert [t["try"] for t in r.stage("images").notes["qa"]["1"]] == [1, 2]
+
+
+def test_review_keeps_best_round_when_rewrite_is_worse(tmp_path):
+    from shorts.models import ClaimCheck, ScriptReview
+
+    ctx = make_ctx(tmp_path, review_max_rounds=2, review_on_low_score="continue")
+    run = new_run(ctx)
+    llm = ctx.llm("review")
+    orig = llm.generate_json
+    reviews = iter([
+        ScriptReview(claims=[ClaimCheck(claim="a", verdict="incorrect", correction="b", source="s")], score=7,
+                     hook_score=8, problems=["x"]),
+        ScriptReview(claims=[ClaimCheck(claim="a", verdict="incorrect", correction="b", source="s")] * 2, score=4,
+                     hook_score=7, problems=["y"]),
+    ])
+    llm.generate_json = lambda **kw: next(reviews) if kw["schema"] is ScriptReview else orig(**kw)
+    assert pipeline.execute(ctx, [run], ["script", "review"])[run.id] == "ok"
+    rounds = json.loads((run.path / "review.json").read_text())
+    assert len(rounds) == 2
+    assert run.stage("review").notes["kept_round"] == 1 and run.stage("review").notes["score"] == 7
+    assert json.loads((run.path / "script.json").read_text()) == rounds[0]["script"]

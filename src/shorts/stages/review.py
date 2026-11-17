@@ -24,7 +24,7 @@ class NeedsHumanReview(RuntimeError):
 def review_script(ctx: Context, run: Run) -> ScriptReview | None:
     """Judge → (if not good enough) rewrite with the script writer → judge again, up to REVIEW_MAX_ROUNDS reviews.
 
-    script.json ends up as the last *judged* version, so the stored score always matches it.
+    script.json ends up as the best *judged* round (fewest bad claims, then score), so the stored score matches it.
     """
     app = ctx.app
     if not app.review_enabled:
@@ -71,10 +71,22 @@ def review_script(ctx: Context, run: Run) -> ScriptReview | None:
                              *scene_plan(app.video_target_seconds)))
         current = generate_script(ctx, run, rewrite)
 
+    # A rewrite can come out worse than the version before it: keep the best judged round
+    # (fewest wrong/unverifiable claims, then highest score, then hook score; earlier round wins ties).
+    def rank(r: dict) -> tuple:
+        rv = r["review"]
+        nbad = sum(c["verdict"] in ("incorrect", "unverifiable") for c in rv["claims"])
+        return (nbad, -rv["score"], -rv["hook_score"], r["round"])
+
+    best = min(rounds, key=rank)
+    if best["round"] != rounds[-1]["round"]:
+        log.info("[%s] keeping round %d (better than the last rewrite)", run.id, best["round"])
+    current = Script.model_validate(best["script"])
+    review = ScriptReview.model_validate(best["review"])
     run.write_json("review.json", rounds)
     run.write_json("script.json", current)
-    assert review is not None
-    run.stage("review").notes.update({"score": review.score, "hook_score": review.hook_score, "rounds": len(rounds)})
+    run.stage("review").notes.update({"score": review.score, "hook_score": review.hook_score, "rounds": len(rounds),
+                                      "kept_round": best["round"]})
     if (review.score < app.review_min_score or any(c.verdict in ("incorrect", "unverifiable") for c in review.claims)) \
             and app.review_on_low_score == "fail":
         raise NeedsHumanReview(
