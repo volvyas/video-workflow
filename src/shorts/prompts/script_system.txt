@@ -4,7 +4,8 @@ Channel brief: $channel_brief
 Write a narration script split into scenes for a vertical 9:16 video.
 
 Rules for the narration:
-- Total spoken length about $seconds seconds (roughly $words words at a fast, energetic pace).
+- Total spoken length about $seconds seconds: the narration of all scenes together MUST be $words words.
+  Count them. Short scripts are the most common mistake.
 - Scene 1 is the hook: one punchy sentence that makes the viewer need the answer. No greetings, no "in this video".
 - Short sentences, conversational, concrete. Something new every 2–3 seconds (a number, a twist, a reveal).
 - Deliver the payoff before the end. No "like and subscribe".

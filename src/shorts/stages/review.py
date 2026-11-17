@@ -12,6 +12,7 @@ from shorts.models import Script, ScriptReview
 from shorts.prompts import render
 from shorts.run import Run
 from shorts.stages.research import research as web_research
+from shorts.stages.script import length_feedback, word_count, word_range
 
 log = logging.getLogger("shorts.stage.review")
 
@@ -33,8 +34,9 @@ def review_script(ctx: Context, run: Run) -> ScriptReview | None:
 
     llm = ctx.llm("review")
     topic = run.manifest.topic
+    lo, _, hi = word_range(app.video_target_seconds)
     system = render("review_system", app.prompts_dir, channel_brief=app.channel_brief,
-                    language=app.content_language, seconds=app.video_target_seconds)
+                    language=app.content_language, seconds=app.video_target_seconds, words=f"{lo}-{hi}")
     rounds: list[dict] = []
     review: ScriptReview | None = None
     for rnd in range(1, max(1, app.review_max_rounds) + 1):
@@ -44,6 +46,7 @@ def review_script(ctx: Context, run: Run) -> ScriptReview | None:
             research = web_research(ctx, topic, current.narration)
         prompt = render("review_user", app.prompts_dir, topic=topic, research=research or "(none)",
                         script=current.model_dump_json())
+        prompt += f"\n\nThe script above has {word_count(current)} words of narration; the revision must have {lo}-{hi}."
         review = llm.generate_json(system=system, prompt=prompt, schema=ScriptReview)
         bad = [c for c in review.claims if c.verdict in ("incorrect", "unverifiable")]
         log.info("[%s] review round %d: score %d, hook %d, %d claim(s) fixed", run.id, rnd, review.score,
@@ -51,6 +54,8 @@ def review_script(ctx: Context, run: Run) -> ScriptReview | None:
         rounds.append({"round": rnd, "research": research, "review": review.model_dump(exclude={"revised"})})
         if review.revised.scenes:
             current = review.revised
+            if fb := length_feedback(current, app.video_target_seconds):
+                log.warning("[%s] revised script length off: %s", run.id, fb.split(".")[0])
         if review.score >= app.review_min_score and not bad:
             break
 

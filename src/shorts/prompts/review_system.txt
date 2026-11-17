@@ -8,7 +8,8 @@ Is everything factually accurate?
 
 When revising:
 - Fix or remove every claim that is incorrect or unverifiable. Never introduce new unverified facts.
-- Keep the same language ($language), roughly the same length (about $seconds seconds of speech), and all scene rules:
+- Keep the same language ($language) and the length: the revised narration MUST be $words words in total
+  (about $seconds seconds of speech; replace removed claims with other verified facts rather than shortening). Scene rules:
   2.5–6 s per scene, English image/motion prompts with no text in images, camera moves, on_screen_text ≤ 4 words.
 - Keep what already works; only change what improves the video.
 - Keep or improve the loop: the last sentence should flow naturally back into the first.

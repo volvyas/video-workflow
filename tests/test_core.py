@@ -129,3 +129,19 @@ def test_map_onto_script_keeps_script_spelling():
 ])
 def test_motion_policy(policy, expected):
     assert [wants_primary(policy, i) for i in range(4)] == expected
+
+
+def test_script_length_feedback():
+    from shorts.models import Scene
+    from shorts.stages.script import length_feedback, word_range
+
+    def script(words):
+        return Script(title="t", description="d", tags=[], visual_style="", scenes=[
+            Scene(narration=" ".join(["word"] * words), image_prompt="i", motion_prompt="m", camera="zoom_in",
+                  on_screen_text="")])
+
+    lo, target, hi = word_range(40)
+    assert (lo, target, hi) == (83, 104, 130)
+    assert length_feedback(script(104), 40) is None
+    assert "too short: 55 words" in length_feedback(script(55), 40)
+    assert "too long" in length_feedback(script(200), 40)
