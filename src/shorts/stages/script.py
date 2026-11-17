@@ -31,22 +31,30 @@ def length_feedback(script: Script, seconds: int) -> str | None:
     if lo <= n <= hi:
         return None
     direction = "too short" if n < lo else "too long"
-    return (f"Your previous script was {direction}: {n} words of narration. It must be {lo}-{hi} words "
-            f"(target {target}) to fill about {seconds} seconds. Rewrite it at the right length: "
-            f"{'add more scenes and concrete details' if n < lo else 'cut filler and merge scenes'}, keep all rules.")
+    scenes, per_lo, per_hi = scene_plan(seconds)
+    return (f"Your previous script was {direction}: {n} words in {len(script.scenes)} scenes. It must be {lo}-{hi} "
+            f"words (target {target}) to fill about {seconds} seconds: write exactly {scenes} scenes with "
+            f"{per_lo}-{per_hi} words of narration each. Keep all other rules.")
 
 
 def script_system_prompt(ctx: Context) -> str:
     app = ctx.app
     seconds = app.video_target_seconds
-    min_scenes = max(4, round(seconds / 6))
-    max_scenes = max(min_scenes + 2, round(seconds / 3))
-    lo, _, hi = word_range(seconds)
+    lo, target, hi = word_range(seconds)
+    scenes, per_lo, per_hi = scene_plan(seconds)
     return render(
         "script_system", app.prompts_dir,
-        channel_brief=app.channel_brief, seconds=seconds, words=f"{lo}-{hi}",
-        language=app.content_language, min_scenes=min_scenes, max_scenes=max_scenes, style=app.style_prompt,
+        channel_brief=app.channel_brief, seconds=seconds, words=f"{lo}-{hi}", scenes=scenes,
+        scene_words=f"{per_lo}-{per_hi}", language=app.content_language, style=app.style_prompt,
     )
+
+
+def scene_plan(seconds: int) -> tuple[int, int, int]:
+    """Number of scenes and words per scene. Models hit structure (N scenes × M words) far better than totals."""
+    target = word_range(seconds)[1]
+    scenes = max(4, round(target / 13))
+    per = target / scenes
+    return scenes, max(6, round(per * 0.8)), round(per * 1.25)
 
 
 def write_script(ctx: Context, run: Run) -> Script:

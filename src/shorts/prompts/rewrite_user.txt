@@ -14,5 +14,6 @@ $problems
 Verified sources you may draw extra facts from (only use facts these sources support):
 $research
 
-Keep what already works. The narration of all scenes together MUST be $words words: if you remove a claim,
-replace it with another verified fact instead of shortening the video. Never repeat a sentence.
+Keep what already works. Length is mandatory: $words words in total, in the same scene structure described in
+the rules ($scene_rule). If you remove a claim, replace it with another verified fact instead of shortening the
+video. Never repeat a sentence.

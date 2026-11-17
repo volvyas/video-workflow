@@ -6,5 +6,9 @@ Judge: does the first sentence stop the scroll? Is there one clear payoff? Is ev
 Is the pacing fast (short sentences, no filler, no repeated sentences)? Does the ending loop back to the start or
 make people comment or follow? Is everything factually accurate? Is the length right ($words words)?
 
+Intentional loop: the last scene may end with a half-sentence that flows into the first sentence when the video
+repeats (e.g. last: "And that's exactly why…", first: "…the ocean is darker than space"). That is a technique,
+not an error. Judge it as a claim only together with the first sentence.
+
 For every factual claim give a verdict, and for wrong or unverifiable ones an accurate replacement with a source.
 List problems as concrete, actionable notes for the writer.

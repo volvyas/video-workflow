@@ -12,7 +12,7 @@ from shorts.models import Script, ScriptReview
 from shorts.prompts import render
 from shorts.run import Run
 from shorts.stages.research import research as web_research
-from shorts.stages.script import generate_script, word_count, word_range
+from shorts.stages.script import generate_script, scene_plan, word_count, word_range
 
 log = logging.getLogger("shorts.stage.review")
 
@@ -67,7 +67,8 @@ def review_script(ctx: Context, run: Run) -> ScriptReview | None:
         problems = "\n".join(f"- {p}" for p in review.problems) or "(none)"
         rewrite = render("rewrite_user", app.prompts_dir, topic=topic, script=current.model_dump_json(),
                          corrections=corrections, problems=problems, research=research or "(none)",
-                         words=f"{lo}-{hi}")
+                         words=f"{lo}-{hi}", scene_rule="exactly {} scenes of {}-{} words".format(
+                             *scene_plan(app.video_target_seconds)))
         current = generate_script(ctx, run, rewrite)
 
     run.write_json("review.json", rounds)

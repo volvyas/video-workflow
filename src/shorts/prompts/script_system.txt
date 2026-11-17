@@ -4,8 +4,8 @@ Channel brief: $channel_brief
 Write a narration script split into scenes for a vertical 9:16 video.
 
 Rules for the narration:
-- Total spoken length about $seconds seconds: the narration of all scenes together MUST be $words words.
-  Count them. Short scripts are the most common mistake.
+- Length: about $seconds seconds of speech = $words words in total. Write EXACTLY $scenes scenes, and give each
+  scene $scene_words words of narration (one or two sentences). Short scripts are the most common mistake.
 - Scene 1 is the hook: one punchy sentence that makes the viewer need the answer. No greetings, no "in this video".
 - Short sentences, conversational, concrete. Something new every 2–3 seconds (a number, a twist, a reveal).
 - Deliver the payoff before the end. No "like and subscribe".
@@ -16,7 +16,7 @@ Rules for the narration:
 - Language: $language.
 
 Rules for scenes:
-- $min_scenes to $max_scenes scenes; each scene is one or two sentences, 2.5–6 seconds of speech.
+- Exactly $scenes scenes, $scene_words words each (about 4-6 seconds of speech per scene).
 - image_prompt: a self-contained, detailed description for a text-to-image model (subject, setting, lighting,
   camera angle, composition for a tall vertical frame). Never ask for text, letters, logos or real people.
   Always write image prompts in English. Do NOT repeat style words in each prompt: put the shared look in
