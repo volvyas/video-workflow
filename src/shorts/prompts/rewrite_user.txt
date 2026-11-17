@@ -1,0 +1,18 @@
+Topic: $topic
+
+Rewrite this script using the editor's notes.
+
+Current script (JSON):
+$script
+
+Fact-check corrections (apply ALL of them; never keep a claim marked incorrect or unverifiable):
+$corrections
+
+Editor's problems to fix:
+$problems
+
+Verified sources you may draw extra facts from (only use facts these sources support):
+$research
+
+Keep what already works. The narration of all scenes together MUST be $words words: if you remove a claim,
+replace it with another verified fact instead of shortening the video. Never repeat a sentence.

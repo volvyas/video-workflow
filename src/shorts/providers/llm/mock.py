@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 
-import json
 from pathlib import Path
 
 from shorts.models import Idea, IdeaBatch, ImageVerdict, Scene, Script, ScriptReview
@@ -38,12 +37,8 @@ class MockLLM(LLMProvider):
         if schema.__name__ == "SearchQueries":
             return schema(queries=["mock claim one", "mock claim two"])
         if schema is ScriptReview:
-            m = re.search(r"<script>(.*?)</script>", prompt, re.DOTALL)
-            script = Script.model_validate(json.loads(m.group(1))) if m else None
-            if script is None:
-                raise ProviderError("mock review: no <script> block in prompt")
             return ScriptReview(claims=[], score=self.settings.review_score, hook_score=self.settings.review_score,
-                                problems=[] if self.settings.review_score >= 7 else ["weak hook"], revised=script)
+                                problems=[] if self.settings.review_score >= 7 else ["weak hook"])
         if schema is ImageVerdict:
             ok = self.settings.image_score >= 6
             return ImageVerdict(matches_prompt=ok, has_text_or_watermark=False, has_artifacts=not ok,

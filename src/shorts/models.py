@@ -64,9 +64,7 @@ class ScriptReview(BaseModel):
     claims: list[ClaimCheck]
     score: int = Field(description="Overall quality of the reviewed script, 1-10 (hook, pacing, payoff, accuracy)")
     hook_score: int = Field(description="Strength of the first sentence as a scroll-stopper, 1-10")
-    problems: list[str] = Field(description="Concrete weaknesses of the reviewed script")
-    revised: Script = Field(description="Improved script: every incorrect/unverifiable claim fixed or removed, "
-                                        "problems addressed, same scene structure rules")
+    problems: list[str] = Field(description="Concrete weaknesses of the reviewed script, each with a fix suggestion")
 
 
 class ImageVerdict(BaseModel):

@@ -6,5 +6,5 @@ $research
 Base each verdict on the research above and put the supporting URL in `source`. If there is no research,
 check the claims yourself and mark anything you are not sure about as unverifiable.
 
-Script to review (JSON):
+Script to judge (JSON):
 <script>$script</script>

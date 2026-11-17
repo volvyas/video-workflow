@@ -54,7 +54,10 @@ def test_low_review_score_stops_until_accepted(tmp_path):
     run = new_run(ctx)
     status = pipeline.execute(ctx, [run])
     assert status[run.id].startswith("review:")
-    assert len(json.loads((run.path / "review.json").read_text())) == 2  # retried once
+    rounds = json.loads((run.path / "review.json").read_text())
+    assert len(rounds) == 2  # judged, rewritten by the script writer, judged again
+    assert all("script" in r and r["words"] > 0 for r in rounds)
+    assert "revised" not in rounds[0]["review"]  # the reviewer only judges
     assert not run.final_video.exists()
 
     accept(run)

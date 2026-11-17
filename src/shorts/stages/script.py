@@ -36,19 +36,32 @@ def length_feedback(script: Script, seconds: int) -> str | None:
             f"{'add more scenes and concrete details' if n < lo else 'cut filler and merge scenes'}, keep all rules.")
 
 
-def write_script(ctx: Context, run: Run) -> Script:
+def script_system_prompt(ctx: Context) -> str:
     app = ctx.app
-    idea = run.idea()
     seconds = app.video_target_seconds
     min_scenes = max(4, round(seconds / 6))
     max_scenes = max(min_scenes + 2, round(seconds / 3))
-    system = render(
+    lo, _, hi = word_range(seconds)
+    return render(
         "script_system", app.prompts_dir,
-        channel_brief=app.channel_brief, seconds=seconds, words=f"{word_range(seconds)[0]}-{word_range(seconds)[2]}",
+        channel_brief=app.channel_brief, seconds=seconds, words=f"{lo}-{hi}",
         language=app.content_language, min_scenes=min_scenes, max_scenes=max_scenes, style=app.style_prompt,
     )
-    prompt = render("script_user", app.prompts_dir, topic=run.manifest.topic, title=idea.title,
+
+
+def write_script(ctx: Context, run: Run) -> Script:
+    idea = run.idea()
+    prompt = render("script_user", ctx.app.prompts_dir, topic=run.manifest.topic, title=idea.title,
                     hook=idea.hook, angle=idea.angle)
+    script = generate_script(ctx, run, prompt)
+    run.write_json("script.json", script)
+    return script
+
+
+def generate_script(ctx: Context, run: Run, prompt: str) -> Script:
+    """Ask the script LLM for a Script, retrying with feedback until the narration length is in range."""
+    seconds = ctx.app.video_target_seconds
+    system = script_system_prompt(ctx)
     llm = ctx.llm("script")
     best: Script | None = None
     feedback = None
@@ -68,6 +81,4 @@ def write_script(ctx: Context, run: Run) -> Script:
                  feedback.split(".")[0])
     if best is None:
         raise ProviderError("script has no scenes with narration")
-    script = best
-    run.write_json("script.json", script)
-    return script
+    return best
