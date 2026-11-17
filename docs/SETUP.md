@@ -10,6 +10,22 @@ the LAN. F5-TTS and faster-whisper run *where the orchestrator runs*, so put it 
 
 ---
 
+## 0. Two-machine layout (current)
+
+| Machine | Runs | Address |
+|---|---|---|
+| **AI box** (Windows, RTX 5070 Ti 16 GB, 64 GB RAM) | llama.cpp `llama-server` (Qwen3.8-Flash-Next), ComfyUI | `<ai-box-ip>` (LLM `:8080`, ComfyUI `:8188`) |
+| **Laptop** (Linux, RTX 3050 4 GB) | `shorts` orchestrator, Kokoro/F5 TTS, faster-whisper, FFmpeg assembly | — |
+
+Windows notes for the AI box:
+- Allow inbound connections (PowerShell as Administrator):
+  ```powershell
+  netsh advfirewall firewall add rule name="llama-server" dir=in action=allow protocol=TCP localport=8080
+  netsh advfirewall firewall add rule name="ComfyUI" dir=in action=allow protocol=TCP localport=8188
+  ```
+- Servers must listen on the network, not only localhost: `--host 0.0.0.0` (llama-server), `--listen 0.0.0.0` (ComfyUI).
+- Windows paths work in the commands below (`-m e:\llama\models\…gguf`). llama-swap has Windows builds too.
+
 ## 1. System prerequisites
 
 ```bash
@@ -211,6 +227,16 @@ On a CPU-only machine use `small` + `ALIGN_WHISPER_COMPUTE_TYPE=int8`. The capti
 ## 6. ComfyUI
 
 ### 6.1 Prepare ComfyUI
+
+**On Windows (the AI box):** use the *ComfyUI portable* build for NVIDIA from the ComfyUI GitHub releases (or
+ComfyUI Desktop). With the portable build, edit `run_nvidia_gpu.bat` and add the listen flags to the python line:
+```bat
+.\python_embeded\python.exe -s ComfyUI\main.py --windows-standalone-build --listen 0.0.0.0 --port 8188
+```
+Models go into `ComfyUI_windows_portable\ComfyUI\models\<folder>\` (same folder names as below). Install
+**ComfyUI-Manager** if your build doesn't include it; you'll use it for custom nodes (GGUF loader, TTS nodes).
+Check from the laptop: `curl http://<ai-box-ip>:8188/system_stats` should show the RTX 5070 Ti.
+
 - Update to a recent version. Wan 2.2 nodes and `CreateVideo`/`SaveVideo` need it.
   ComfyUI's PyTorch must also be a CUDA 12.8+ build for RTX 50xx.
 - If the orchestrator runs on another machine, start ComfyUI with `python main.py --listen 0.0.0.0` and set `COMFY_URL`.

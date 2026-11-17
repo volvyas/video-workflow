@@ -18,6 +18,38 @@ class FasterWhisperSettings(ProviderSettings):
     language: str | None = None  # ISO code, e.g. "en", "uk"; None = auto-detect
 
 
+def _preload_cuda_libs() -> None:
+    """ctranslate2 needs libcublas/libcudnn; the CUDA torch wheels ship them under site-packages/nvidia/*/lib."""
+    import ctypes
+    import importlib.util
+
+    for pkg, libs in (("nvidia.cublas", ("libcublasLt.so.12", "libcublas.so.12")),
+                      ("nvidia.cudnn", ("libcudnn.so.9",))):
+        spec = importlib.util.find_spec(pkg)
+        if not spec or not spec.submodule_search_locations:
+            continue
+        libdir = Path(list(spec.submodule_search_locations)[0]) / "lib"
+        for lib in libs:
+            if (libdir / lib).exists():
+                try:
+                    ctypes.CDLL(str(libdir / lib), mode=ctypes.RTLD_GLOBAL)
+                except OSError:
+                    pass
+
+
+def _load_16k(path: Path):
+    """Decode to 16 kHz mono float32 with ffmpeg (faster-whisper's own PyAV decoder breaks on new PyAV versions)."""
+    import subprocess
+
+    import numpy as np
+
+    from shorts.media import ffmpeg
+
+    proc = subprocess.run([ffmpeg.ffmpeg_bin(), "-hide_banner", "-loglevel", "error", "-i", str(path),
+                           "-f", "s16le", "-ac", "1", "-ar", "16000", "-"], capture_output=True, check=True)
+    return np.frombuffer(proc.stdout, dtype=np.int16).astype(np.float32) / 32768.0
+
+
 def _norm(w: str) -> str:
     return re.sub(r"\W+", "", w.lower())
 
@@ -42,14 +74,27 @@ class FasterWhisperAligner(Aligner):
             except ImportError as e:
                 raise ProviderError("faster-whisper not installed: run `uv sync --extra whisper`") from e
             s = self.settings
+            if s.device != "cpu":
+                _preload_cuda_libs()
             self._model = WhisperModel(s.model, device=s.device, compute_type=s.compute_type)
         return self._model
 
-    def align(self, audio: Path, text: str) -> list[WordTiming]:
+    def _transcribe(self, audio, text: str):
         segments, _ = self._load().transcribe(
-            str(audio), language=self.settings.language, word_timestamps=True, initial_prompt=text, beam_size=5
+            audio, language=self.settings.language, word_timestamps=True, initial_prompt=text, beam_size=5
         )
-        heard = [(w.word.strip(), w.start, w.end) for seg in segments for w in (seg.words or [])]
+        return [(w.word.strip(), w.start, w.end) for seg in segments for w in (seg.words or [])]
+
+    def align(self, audio: Path, text: str) -> list[WordTiming]:
+        samples = _load_16k(audio)
+        try:
+            heard = self._transcribe(samples, text)
+        except RuntimeError as e:  # CUDA libs missing/mismatched: don't fail the run, use the CPU
+            if self.settings.device == "cpu":
+                raise
+            self.log.warning("faster-whisper on GPU failed (%s); falling back to CPU", e)
+            self.settings.device, self.settings.compute_type, self._model = "cpu", "int8", None
+            heard = self._transcribe(samples, text)
         return map_onto_script(text.split(), heard)
 
     def unload(self) -> None:
