@@ -34,6 +34,19 @@ Each task ends in something runnable or testable. Tasks are in dependency order.
 Verified on the dev laptop with mock providers: `make` for 2 videos end to end (1080×1920, 30 fps, 48 kHz AAC, burned
 captions, ducked music), motion fallback, `redo` of one scene, `resume --force`, `status`. 20 unit tests pass.
 
+## Bring-up log
+
+**2026-11-17: first real run (AI box <ai-box-ip>, laptop orchestrator)**
+- LLM: llama-server b11370, Qwen3.8-Flash-Next **UD-IQ1_S** (72.5 GB, 1.56 bpw), ctx 32768, no vision (`--mmproj` not loaded).
+  Speed ~9 tok/s generation, ~100–130 tok/s prompt. Thinking on burns 1500+ tokens per call → **off by default**.
+- Full run with real LLM + DuckDuckGo search + Kokoro + faster-whisper (laptop GPU), mock images, Ken Burns: ✅ `final.mp4`.
+  Timing: ideas 1 min, script 1.5 min, review 2 rounds ≈ 7 min, everything after the LLM stages ≈ 40 s.
+- The fact-check worked: round 1 caught a false hook claim and a wrong number (fixed using a PNAS source), round 2 scored 8/10.
+- Bugs found and fixed: `strict_schema` dropped fields named `title`; faster-whisper + PyAV 19 decode error;
+  ctranslate2 couldn't find cuBLAS (now preloaded from torch's wheels, CPU fallback); narration too short (55 words for 40 s)
+  → word-range enforcement.
+- Open: ComfyUI not installed yet; load `--mmproj` to enable the image check; F5 voice clip not recorded (Kokoro meanwhile).
+
 ## Next up (task 13: bring-up on the 5070 Ti)
 1. `uv sync --extra claude --extra f5 --extra whisper`, `cp .env.example .env`, add API key → `shorts llm-test`
 2. Record the reference voice → `shorts check`
