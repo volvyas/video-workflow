@@ -65,6 +65,9 @@ def test_strict_schema_is_closed_and_inlined():
     assert scene["additionalProperties"] is False
     assert set(scene["required"]) == set(scene["properties"])
     assert "enum" in scene["properties"]["camera"]
+    # fields literally named like schema metadata ("title") must survive
+    assert "title" in s["properties"] and "title" in s["required"]
+    assert "title" not in s["properties"]["title"]  # ...while metadata titles are dropped
 
 
 def test_extract_json_tolerates_fences_and_prose():

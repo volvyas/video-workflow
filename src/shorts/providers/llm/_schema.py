@@ -22,7 +22,9 @@ def strict_schema(model: type[BaseModel]) -> dict[str, Any]:
                 ref = node["$ref"].split("/")[-1]
                 merged = {**copy.deepcopy(defs[ref]), **{k: v for k, v in node.items() if k != "$ref"}}
                 return walk(merged)
-            out = {k: walk(v) for k, v in node.items() if k not in _DROP_KEYS}
+            out = {k: walk(v) for k, v in node.items() if k not in _DROP_KEYS and k != "properties"}
+            if "properties" in node:  # property names are field names, never metadata: keep them all
+                out["properties"] = {name: walk(sub) for name, sub in node["properties"].items()}
             if out.get("type") == "object" and "properties" in out:
                 out["additionalProperties"] = False
                 out["required"] = list(out["properties"].keys())
