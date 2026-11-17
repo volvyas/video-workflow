@@ -59,6 +59,7 @@ class Manifest(BaseModel):
     run_id: str
     topic: str
     idea_id: str | None = None
+    style_profile: str | None = None  # resume/redo use this style even if .env changed since
     seed: int
     created_at: float = Field(default_factory=time.time)
     stages: dict[str, StageRecord] = Field(default_factory=dict)
@@ -72,7 +73,8 @@ class Run:
 
     # ------------------------------------------------------------ creation
     @classmethod
-    def create(cls, runs_dir: Path, topic: str, idea: Idea, seed: int, idea_id: str | None = None) -> "Run":
+    def create(cls, runs_dir: Path, topic: str, idea: Idea, seed: int, idea_id: str | None = None,
+               style_profile: str | None = None) -> "Run":
         stamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
         path = Path(runs_dir) / f"{stamp}_{slugify(idea.title)}"
         n = 2
@@ -81,7 +83,8 @@ class Run:
             n += 1
         path.mkdir(parents=True)
         run = cls(path)
-        run._manifest = Manifest(run_id=path.name, topic=topic, idea_id=idea_id, seed=seed)
+        run._manifest = Manifest(run_id=path.name, topic=topic, idea_id=idea_id, seed=seed,
+                                 style_profile=style_profile)
         run.write_json("idea.json", idea)
         run.save()
         return run

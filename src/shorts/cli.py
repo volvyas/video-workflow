@@ -25,7 +25,7 @@ _state: dict = {}
 def ctx() -> Context:
     if "ctx" not in _state:
         try:
-            _state["ctx"] = Context(Env.load(_state.get("env_file")))
+            _state["ctx"] = Context(Env.load(_state.get("env_file"), _state.get("style")))
         except ConfigError as e:
             typer.secho(f"config error: {e}", fg="red", err=True)
             raise typer.Exit(2)
@@ -36,8 +36,12 @@ def ctx() -> Context:
 def main(
     env_file: Annotated[Optional[Path], typer.Option("--env-file", "-e", help="Use this env file instead of .env")] = None,
     verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False,
+    style: Annotated[Optional[str], typer.Option("--style", help="Style profile (styles/<name>.env), overrides "
+                                                 "STYLE_PROFILE; `shorts styles` lists them")] = None,
 ):
     _state["env_file"] = env_file
+    _state["style"] = style
+    _state["style_explicit"] = style is not None
     logging.basicConfig(level=logging.DEBUG if verbose else logging.INFO,
                         format="%(asctime)s %(levelname).1s %(name)s: %(message)s", datefmt="%H:%M:%S")
     for noisy in ("httpx", "httpcore", "anthropic", "urllib3", "PIL", "googleapiclient"):
@@ -52,7 +56,24 @@ def _runs(paths: list[Path]) -> list:
         if not p.exists():
             p = ctx().app.runs_dir / p
         out.append(Run.open(p))
+    _adopt_run_style(out)
     return out
+
+
+def _adopt_run_style(runs: list) -> None:
+    """Existing runs keep the style they were made with, unless --style was given explicitly."""
+    styles = {r.manifest.style_profile for r in runs if r.manifest.style_profile}
+    if not styles or _state.get("style_explicit"):
+        return
+    if len(styles) > 1:
+        raise typer.BadParameter(f"these runs use different style profiles ({', '.join(sorted(styles))}); "
+                                 "run them separately or pass --style")
+    (style,) = styles
+    if style != ctx().app.style_profile:
+        typer.secho(f"using the run's style profile '{style}' (current setting: {ctx().app.style_profile})",
+                    fg="yellow")
+        _state["style"] = style
+        _state.pop("ctx", None)
 
 
 def _report(status: dict[str, str], runs) -> None:
@@ -226,6 +247,23 @@ def upload(
 
     history.record(c, r, "upload")
     typer.secho(f"uploaded: {url}", fg="green")
+
+
+# ------------------------------------------------------------------ styles
+@app.command()
+def styles():
+    """List style profiles (styles/*.env) and show which one is active."""
+    from dotenv import dotenv_values
+
+    from shorts.config import list_styles
+
+    a = ctx().app
+    for name in list_styles(a.styles_dir):
+        v = dotenv_values(Path(a.styles_dir) / f"{name}.env")
+        mark = "→" if name == a.style_profile else " "
+        typer.echo(f"{mark} {name:12s} {(v.get('STYLE_PROMPT') or '')[:90]}")
+    typer.echo(f"\nactive: {a.style_profile or '(none: STYLE_PROMPT from .env)'}. "
+               "Switch: STYLE_PROFILE=name in .env, or `shorts --style name make ...`")
 
 
 # ------------------------------------------------------------------ diagnostics

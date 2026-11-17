@@ -48,6 +48,7 @@ def build_ass(app: AppSettings, words: list[WordTiming], scenes: list[Scene] | N
     primary = ass_color(app.caption_color)
     outline = ass_color(app.caption_outline_color)
     highlight = ass_color(app.caption_highlight_color)
+    bold = -1 if app.caption_bold else 0
     header = f"""[Script Info]
 ScriptType: v4.00+
 PlayResX: {W}
@@ -57,8 +58,8 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Caption,{app.caption_font},{app.caption_font_size},{primary},{highlight},{outline},&H80000000,-1,0,0,0,100,100,0,0,1,{app.caption_outline},2,2,60,60,{app.caption_margin_bottom},1
-Style: Overlay,{app.caption_font},{int(app.caption_font_size * 0.8)},{highlight},{primary},{outline},&H80000000,-1,0,0,0,100,100,0,0,1,{app.caption_outline},2,8,60,60,260,1
+Style: Caption,{app.caption_font},{app.caption_font_size},{primary},{highlight},{outline},&H80000000,{bold},0,0,0,100,100,0,0,1,{app.caption_outline},2,2,60,60,{app.caption_margin_bottom},1
+Style: Overlay,{app.caption_font},{int(app.caption_font_size * 0.8)},{highlight},{primary},{outline},&H80000000,{bold},0,0,0,100,100,0,0,1,{app.caption_outline},2,8,60,60,260,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text

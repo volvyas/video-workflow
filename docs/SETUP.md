@@ -358,6 +358,30 @@ uv run shorts comfy test-motion comfy_test.png --prompt "waves crash, light beam
 - **Sound effects:** put a few short whoosh/swish/hit sounds (0.2–0.8 s, royalty-free, e.g. from freesound.org with CC0
   or Pixabay) in `assets/sfx/`. One plays on every scene cut (`SFX_VOLUME`, `SFX_LEAD`). Empty folder = none.
 
+## 7b. Style profiles
+
+A profile is a small env file in `styles/` that sets the channel look: `STYLE_PROMPT` and `NEGATIVE_PROMPT` for the image
+model, `STYLE_GUIDE` (visual rules for the script writer), the caption font and colors, and the motion prompt suffix.
+
+| Profile | Look | Caption font |
+|---|---|---|
+| `cinematic` | photographic realism | Montserrat ExtraBold |
+| `comic` | inked comic panels, halftone shading (verified with Z-Image + LTX-2.3: line art stays crisp in motion) | Bangers |
+| `cartoon` | flat 2D cartoon, bold outlines | Luckiest Guy |
+| `animated3d` | stylized 3D animated film | Lilita One |
+
+```bash
+uv run shorts styles                          # list, → marks the active one
+uv run shorts --style cartoon make "cats"     # one-off
+```
+Pick the default with `STYLE_PROFILE=comic` in `.env`. Precedence: real environment variables > profile > `.env`.
+A run records its profile in `manifest.json`, and `resume` / `redo` / `accept` use it even if `.env` changed since
+(`--style` overrides). New look: copy a file in `styles/`, edit it, and test with `shorts comfy test-image`.
+
+Fonts: put the `.ttf` files into `assets/fonts/` (git-ignored). The four above are free (OFL / Apache-2.0): Montserrat
+(github.com/JulietaUla/Montserrat), Bangers, Luckiest Guy and Lilita One (github.com/google/fonts). If a font is
+missing, ffmpeg silently falls back to a default font.
+
 ## 8. Quality gates
 
 **Script review** (stage `review`, after `script`): the LLM fact-checks every claim against **web search** results (§3.3), then scores

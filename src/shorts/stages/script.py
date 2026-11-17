@@ -46,6 +46,7 @@ def script_system_prompt(ctx: Context) -> str:
         "script_system", app.prompts_dir,
         channel_brief=app.channel_brief, seconds=seconds, words=f"{lo}-{hi}", scenes=scenes,
         scene_words=f"{per_lo}-{per_hi}", language=app.content_language, style=app.style_prompt,
+        style_guide=app.style_guide or "",
     )
 
 

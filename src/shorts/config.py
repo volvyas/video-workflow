@@ -1,7 +1,7 @@
 """Configuration: .env loading, global AppSettings, and per-provider settings extraction.
 
-Precedence (highest first): real environment variables > the .env file > defaults in code.
-Empty values (`KEY=`) are treated as "not set".
+Precedence (highest first): real environment variables > style profile (STYLE_PROFILE=name loads
+styles/<name>.env) > the .env file > defaults in code. Empty values (`KEY=`) are treated as "not set".
 """
 
 from __future__ import annotations
@@ -44,7 +44,9 @@ class AppSettings(BaseModel):
     content_language: str = "English"
     channel_brief: str = "A faceless YouTube Shorts channel with surprising, accurate, fast-paced facts."
     video_target_seconds: int = 40
+    style_profile: str | None = None  # name of a styles/<name>.env file (see Env.load)
     style_prompt: str = "cinematic, highly detailed, dramatic lighting, vertical composition"
+    style_guide: str = ""  # extra visual instructions for the script writer, set by style profiles
     negative_prompt: str = "text, watermark, logo, blurry, lowres, deformed, extra fingers"
 
     # --- quality gates --------------------------------------------------------
@@ -99,6 +101,7 @@ class AppSettings(BaseModel):
     caption_margin_bottom: int = 560
     caption_words_per_group: int = 3
     caption_uppercase: bool = True
+    caption_bold: bool = False  # synthetic bold; leave off for fonts that are already heavy (all bundled ones)
 
     # --- ComfyUI (shared by comfy image / i2v providers) ---------------------
     comfy_url: str = "http://127.0.0.1:8188"
@@ -108,6 +111,7 @@ class AppSettings(BaseModel):
     # --- paths & behaviour --------------------------------------------------
     runs_dir: Path = Path("runs")
     ideas_dir: Path = Path("ideas")
+    styles_dir: Path = Path("styles")
     prompts_dir: Path | None = None  # override built-in prompt templates
     ffmpeg_path: str | None = None
     ffprobe_path: str | None = None
@@ -122,6 +126,18 @@ class AppSettings(BaseModel):
         return override or self.llm_provider
 
 
+def list_styles(styles_dir: Path) -> list[str]:
+    return sorted(p.stem for p in Path(styles_dir).glob("*.env"))
+
+
+def load_style(styles_dir: Path, name: str) -> dict[str, str]:
+    p = Path(styles_dir) / f"{name}.env"
+    if not p.exists():
+        known = ", ".join(list_styles(styles_dir)) or "none"
+        raise ConfigError(f"style profile '{name}' not found: {p} (available: {known})")
+    return {k: v for k, v in dotenv_values(p).items() if v is not None}
+
+
 class Env:
     """A merged view of .env + process environment."""
 
@@ -132,18 +148,28 @@ class Env:
 
     # -- loading -------------------------------------------------------------
     @classmethod
-    def load(cls, env_file: str | Path | None = None) -> "Env":
+    def load(cls, env_file: str | Path | None = None, style: str | None = None) -> "Env":
+        """Load .env (or `env_file`), then the style profile named by `style` / STYLE_PROFILE on top of it."""
         path = Path(env_file) if env_file else Path(os.environ.get("SHORTS_ENV_FILE", ".env"))
         file_values: dict[str, str] = {}
         if path.exists():
             file_values = {k: v for k, v in dotenv_values(path).items() if v is not None}
-            # Export to the process so SDKs that read env vars directly
-            # (ANTHROPIC_API_KEY, HF_TOKEN, ...) see values from the file too.
-            for k, v in file_values.items():
-                os.environ.setdefault(k, v)
         elif env_file:
             raise ConfigError(f"env file not found: {path}")
-        merged = {**file_values, **os.environ}
+        process = dict(os.environ)
+        name = style or process.get("STYLE_PROFILE") or file_values.get("STYLE_PROFILE")
+        profile: dict[str, str] = {}
+        if name:
+            styles_dir = Path(process.get("STYLES_DIR") or file_values.get("STYLES_DIR") or "styles")
+            profile = load_style(styles_dir, name)
+            profile["STYLE_PROFILE"] = name
+        merged = {**file_values, **profile, **process}
+        if style:
+            merged["STYLE_PROFILE"] = style
+        # Export to the process so SDKs that read env vars directly
+        # (ANTHROPIC_API_KEY, HF_TOKEN, ...) see values from the files too.
+        for k, v in {**file_values, **profile}.items():
+            os.environ.setdefault(k, v)
         return cls(merged, path if path.exists() else None)
 
     # -- access --------------------------------------------------------------

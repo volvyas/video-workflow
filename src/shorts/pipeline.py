@@ -60,7 +60,8 @@ _UNLOAD_ALSO = {"images": "llm"}
 def create_runs(ctx: Context, topic: str, picked: list[StoredIdea]) -> list[Run]:
     runs = []
     for idea in picked:
-        run = Run.create(ctx.app.runs_dir, topic, idea, ctx.new_seed(), idea_id=idea.id)
+        run = Run.create(ctx.app.runs_dir, topic, idea, ctx.new_seed(), idea_id=idea.id,
+                         style_profile=ctx.app.style_profile)
         ideas.mark_used(ctx.app, topic, idea.id, run.id)
         runs.append(run)
     return runs

@@ -21,8 +21,11 @@ Rules for scenes:
   camera angle, composition for a tall vertical frame). Never ask for text, letters, logos or real people.
   Always write image prompts in English. Do NOT repeat style words in each prompt: put the shared look in
   visual_style instead.
-- visual_style: one consistent look for this whole video (medium, color palette, lighting, lens/camera), in
-  English, max 25 words. It's appended to every image prompt together with the channel style "$style".
+- The channel's visual style is FIXED: "$style". It is appended to every image prompt automatically.
+  $style_guide
+- visual_style: color palette, lighting and mood for this whole video, in English, max 20 words, staying inside
+  the channel style. Never name a different medium or rendering (photo, photorealistic, 3D render, cartoon,
+  painting, ...) than the channel style uses.
 - Make scene 1 the most striking image of the video.
 - motion_prompt: one short English sentence describing natural motion in that image for an image-to-video model
   (e.g. "slow push-in, dust particles drifting, flickering light").
