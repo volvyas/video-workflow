@@ -1,12 +1,19 @@
-# llama-swap config for the GPU box. Run:  llama-swap --config deploy/llama-swap.yaml --listen 0.0.0.0:8080
-# It starts llama-server on the first request and stops it on GET /unload (the pipeline calls this before
-# ComfyUI stages when LLM_OPENAI_UNLOAD_URL is set) or after `ttl` seconds idle.
-# Adjust the paths. If your llama.cpp build rejects a flag, check `llama-server --help`.
+# llama-swap config for the AI box. llama-swap is a separate program: https://github.com/mostlygeek/llama-swap
+# (Windows: llama-swap_<version>_windows_amd64.zip from its Releases page, or `winget install llama-swap`).
+#
+#   llama-swap --config llama-swap.yaml --listen 0.0.0.0:8080
+#
+# It starts llama-server on the first request for the model below and stops it on POST /api/models/unload
+# (the pipeline calls that before ComfyUI stages when LLM_OPENAI_UNLOAD_URL is set) or after `ttl` seconds idle.
+#
+# Fill in YOUR paths. Forward slashes work on Windows too and avoid escaping problems; put quotes around a path that
+# contains spaces. For a split model (…-00001-of-00002.gguf) point -m at the first part.
+# Drop the --mmproj line if you don't have the vision file. If a flag is rejected, check `llama-server --help`.
 models:
-  qwen3.8-flash-next:
+  qwen3.8-flash-next:          # must equal LLM_OPENAI_MODEL in the laptop's .env
     cmd: >
-      llama-server --port ${PORT}
-      -m /path/to/Qwen3.8-Flash-Next-QUANT.gguf
-      --mmproj /path/to/mmproj-QUANT.gguf
+      C:/llama.cpp/llama-server.exe --port ${PORT}
+      -m C:/models/Qwen3.8-Flash-Next-UD-IQ1_S-00001-of-00002.gguf
+      --mmproj C:/models/mmproj-Qwen3.8-Flash-Next-F16.gguf
       -ngl 99 --n-cpu-moe 99 -c 32768 --jinja
-    ttl: 600
+    ttl: 600                   # also unload after 10 minutes without requests

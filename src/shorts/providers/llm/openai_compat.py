@@ -22,8 +22,8 @@ class OpenAICompatSettings(ProviderSettings):
     timeout: float = 900
     retries: int = 2
     extra_body: str = ""  # JSON merged into each request, e.g. {"chat_template_kwargs": {"enable_thinking": false}}
-    unload_url: str = ""  # called by the pipeline to free RAM/VRAM, e.g. llama-swap: http://host:8080/unload
-    unload_method: str = "GET"
+    unload_url: str = ""  # called by the pipeline to free RAM/VRAM, e.g. llama-swap: http://host:8080/api/models/unload
+    unload_method: str = "POST"
 
 
 class OpenAICompatLLM(LLMProvider):

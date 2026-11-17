@@ -113,20 +113,32 @@ uv run shorts make "black holes" -n 1 --until review  # LLM-only stages; read ru
 `--until review` stops before any ComfyUI stage, so plain llama-server can stay running without competing for VRAM.
 
 #### Step 4: Automatic unloading with llama-swap (for full runs)
-The LLM must leave VRAM before ComfyUI renders, and plain llama-server can't unload on request.
-**llama-swap** is a small proxy that starts llama-server when a request arrives and stops it on `GET /unload`
-(or after an idle `ttl`). The ready-made config is [`deploy/llama-swap.yaml`](../deploy/llama-swap.yaml); fill in your paths.
+The LLM must leave VRAM (and RAM) before ComfyUI renders, and plain llama-server can't unload on request.
+**llama-swap** is a small proxy that starts llama-server when a request arrives and stops it on
+`POST /api/models/unload` (or after an idle `ttl`). It is a **separate program**, not part of llama.cpp or this repo;
+the repo only ships its config, [`deploy/llama-swap.yaml`](../deploy/llama-swap.yaml).
 
-```bash
-# on the GPU box (stop the manual llama-server first: llama-swap takes over port 8080)
-llama-swap --config deploy/llama-swap.yaml --listen 0.0.0.0:8080
+On the Windows AI box:
+1. Download `llama-swap_<version>_windows_amd64.zip` from https://github.com/mostlygeek/llama-swap/releases
+   (or `winget install llama-swap`) and unzip it, e.g. to `C:\llama-swap\`.
+2. Copy `deploy/llama-swap.yaml` from this repo next to `llama-swap.exe` and edit the three paths in `cmd`:
+   `llama-server.exe`, the model `.gguf` (first part if split) and the `mmproj` file (or delete that line).
+   Forward slashes (`C:/models/...`) are fine on Windows.
+3. Stop the manual llama-server (llama-swap takes over port 8080, so the firewall rule stays valid) and run:
+   ```powershell
+   cd C:\llama-swap
+   .\llama-swap.exe --config llama-swap.yaml --listen 0.0.0.0:8080
+   ```
+4. From the laptop: `curl http://<ai-box-ip>:8080/v1/models` lists `qwen3.8-flash-next`, and `uv run shorts llm-test`
+   works (the first request waits while llama-swap starts llama-server and loads the model).
+
+`.env` on the laptop keeps the same base URL and adds:
 ```
-`.env` keeps the same base URL and adds:
-```
-LLM_OPENAI_UNLOAD_URL=http://<gpu-box-ip>:8080/unload
+LLM_OPENAI_UNLOAD_URL=http://<ai-box-ip>:8080/api/models/unload
+LLM_OPENAI_UNLOAD_METHOD=POST
 ```
 The pipeline then unloads the LLM after the review stage and between image-check rounds. The first request after an
-unload waits for the reload, which is quick because the experts come back from RAM page cache.
+unload waits for the model to load again (from disk, or faster from the Windows file cache).
 If your setup works without unloading, leave `LLM_OPENAI_UNLOAD_URL` empty.
 
 #### Troubleshooting

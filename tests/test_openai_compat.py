@@ -22,7 +22,7 @@ def test_openai_compat_request_extra_body_and_unload():
     p = create("llm", "openai_compat", Env({
         "LLM_OPENAI_BASE_URL": "http://gpu-box:8080/v1", "LLM_OPENAI_MODEL": "qwen3.8-flash-next",
         "LLM_OPENAI_EXTRA_BODY": '{"chat_template_kwargs": {"enable_thinking": false}}',
-        "LLM_OPENAI_UNLOAD_URL": "http://gpu-box:8080/unload",
+        "LLM_OPENAI_UNLOAD_URL": "http://gpu-box:8080/api/models/unload",
     }))
     p._http = httpx.Client(base_url="http://gpu-box:8080/v1", transport=httpx.MockTransport(handler))
 
@@ -35,4 +35,4 @@ def test_openai_compat_request_extra_body_and_unload():
     assert body["response_format"]["type"] == "json_schema"
 
     p.unload()
-    assert seen[-1][:2] == ("GET", "http://gpu-box:8080/unload")
+    assert seen[-1][:2] == ("POST", "http://gpu-box:8080/api/models/unload")
