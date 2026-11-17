@@ -126,6 +126,9 @@ class AppSettings(BaseModel):
         return override or self.llm_provider
 
 
+_EXPORTED: dict[str, str] = {}  # keys Env.load put into os.environ (not set by the user)
+
+
 def list_styles(styles_dir: Path) -> list[str]:
     return sorted(p.stem for p in Path(styles_dir).glob("*.env"))
 
@@ -156,7 +159,9 @@ class Env:
             file_values = {k: v for k, v in dotenv_values(path).items() if v is not None}
         elif env_file:
             raise ConfigError(f"env file not found: {path}")
-        process = dict(os.environ)
+        # Real environment only: ignore values a previous load exported itself (else a reload with another
+        # style profile would see the old profile's values as if they came from the shell).
+        process = {k: v for k, v in os.environ.items() if _EXPORTED.get(k) != v}
         name = style or process.get("STYLE_PROFILE") or file_values.get("STYLE_PROFILE")
         profile: dict[str, str] = {}
         if name:
@@ -169,7 +174,9 @@ class Env:
         # Export to the process so SDKs that read env vars directly
         # (ANTHROPIC_API_KEY, HF_TOKEN, ...) see values from the files too.
         for k, v in {**file_values, **profile}.items():
-            os.environ.setdefault(k, v)
+            if k not in process:
+                os.environ[k] = v
+                _EXPORTED[k] = v
         return cls(merged, path if path.exists() else None)
 
     # -- access --------------------------------------------------------------

@@ -31,6 +31,13 @@ def test_explicit_style_and_real_env_win(project, monkeypatch):
     assert Env.load().app.style_prompt == "from shell"
 
 
+def test_reload_with_another_style_in_same_process(project):
+    assert Env.load().app.caption_font == "Bangers"  # comic, exported to os.environ
+    a = Env.load(style="cinematic").app
+    assert a.style_prompt == "35mm photo"
+    assert a.caption_font == "Montserrat"  # from .env again, not the comic profile's leftover
+
+
 def test_unknown_profile_lists_available(project):
     with pytest.raises(ConfigError, match="available: cinematic, comic"):
         Env.load(style="anime")
