@@ -17,3 +17,7 @@ models:
       --mmproj C:/models/mmproj-Qwen3.8-Flash-Next-F16.gguf
       -ngl 99 --n-cpu-moe 99 -c 32768 --jinja
     ttl: 600                   # also unload after 10 minutes without requests
+    # Windows: stop only llama-server. Without this, llama-swap's default stop signal can take down
+    # llama-swap itself (seen 2026-11-17: llama-swap exited on the first /api/models/unload).
+    # On Linux, delete this line.
+    cmdStop: taskkill /f /t /pid ${PID}
