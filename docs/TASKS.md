@@ -45,6 +45,10 @@ captions, ducked music), motion fallback, `redo` of one scene, `resume --force`,
 - Bugs found and fixed: `strict_schema` dropped fields named `title`; faster-whisper + PyAV 19 decode error;
   ctranslate2 couldn't find cuBLAS (now preloaded from torch's wheels, CPU fallback); narration too short (55 words for 40 s)
   → word-range enforcement.
+- Review redesign after real runs: the reviewer only judges; rewrites go through the script writer with corrections,
+  sources and length enforcement. Length is now requested as structure (8 scenes × 10–16 words for 40 s) → first draft
+  92 words in range on the first try. Remaining quality limit: the IQ1_S model's factual accuracy in rewrites
+  (see RECOMMENDATIONS 8a–8c). The quality gate stopped the bad script as intended.
 - Open: ComfyUI not installed yet; load `--mmproj` to enable the image check; F5 voice clip not recorded (Kokoro meanwhile).
 
 ## Next up (task 13: bring-up on the 5070 Ti)

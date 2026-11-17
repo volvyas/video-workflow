@@ -28,6 +28,15 @@ Suggestions made during design, with their status. ✅ done · 🔄 in progress 
 | 7b | **A/B LLMs**: e.g. `IDEAS_LLM_PROVIDER=ollama` vs Claude for a week | Data-driven provider choice | ⬜ (supported via `-e` env files) |
 | 7c | **YouTube policy hygiene**: vary formats (top-3, myth vs fact, "what if…"), consider your own voice as the cloning reference | YPP excludes repetitive/mass-produced content | ⬜ |
 
+## From the first real runs (2026-11-17)
+
+| # | Recommendation | Why | Status |
+|---|---|---|---|
+| 8a | **Better LLM quality for writing**: try a higher quant of Qwen3.8-Flash-Next if it fits (IQ2 ≈ 66–79 GB vs 80 GB RAM+VRAM), or a smaller model at Q4–Q6 for script writing (faster, often better than 1.6-bit), A/B via `-e` env files | UD-IQ1_S scripts: rewrites shrink, add new factual errors, one sentence repeated; ~9 tok/s | ⬜ your call |
+| 8b | **Split roles across models**: big model judges/fact-checks (`REVIEW_LLM_PROVIDER`), a faster/better-writing model drafts (`SCRIPT_LLM_PROVIDER`) | Different strengths; needs a second provider instance (e.g. `ollama` + `openai_compat`) | ⬜ supported today |
+| 8c | **Fact-check ideas before scripting**: reject ideas whose premise is false (e.g. "more life below than space above") | The review fixes claims, but a false premise poisons every rewrite | ⬜ |
+| 8d | **Load the vision projector** (`--mmproj`) on the AI box | Enables the image check with the same model | ⬜ your action |
+
 ## Decisions log
 
 | Date | Decision |
