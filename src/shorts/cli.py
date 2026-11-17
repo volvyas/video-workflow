@@ -393,6 +393,33 @@ def comfy_inspect(workflow: Path):
     typer.echo(f"\nplaceholders: {sorted(template.placeholders(wf)) or 'none'}")
 
 
+@comfy_app.command("pull")
+def comfy_pull(
+    output: Annotated[Optional[Path], typer.Argument(help="Save the job here, e.g. workflows/my_image.json")] = None,
+    job: Annotated[int, typer.Option("--job", "-j", help="1 = most recent job (see the list without OUTPUT)")] = 1,
+):
+    """Copy a job you ran in the ComfyUI browser UI as an API-format workflow (no export needed).
+
+    Without OUTPUT: list recent jobs. Then run `shorts comfy inspect` and `shorts comfy mark` on the saved file.
+    """
+    from shorts.comfy.client import ComfyClient
+
+    jobs = ComfyClient(ctx().app.comfy_url).history()
+    if not jobs:
+        raise typer.BadParameter("ComfyUI has no finished jobs: run the workflow once in the browser first")
+    if output is None:
+        for n, j in enumerate(jobs, 1):
+            saves = [t for t in j["class_types"] if t.startswith("Save") or "Combine" in t]
+            loaders = [t for t in j["class_types"] if "Loader" in t][:3]
+            typer.echo(f"{n:2d}. {j['status']:8s} {j['seconds']:6.1f}s  {', '.join(saves)}  ({', '.join(loaders)})")
+        typer.echo("\nSave one: shorts comfy pull workflows/NAME.json --job N")
+        return
+    j = jobs[job - 1]
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(j["workflow"], indent=2, ensure_ascii=False), encoding="utf-8")
+    typer.echo(f"wrote {output} (job {job}, {j['status']}). Next: shorts comfy inspect {output}")
+
+
 @comfy_app.command("mark")
 def comfy_mark(
     workflow: Path,

@@ -60,6 +60,20 @@ class ComfyClient:
             log.debug("comfy /free failed: %s", e)
 
     # ---------------------------------------------------------------- jobs
+    def history(self, max_items: int = 20) -> list[dict[str, Any]]:
+        """Finished jobs, newest first: {"id", "workflow" (API format), "status", "class_types", "seconds"}."""
+        r = self._http.get("/history", params={"max_items": max_items})
+        r.raise_for_status()
+        out = []
+        for pid, j in r.json().items():
+            msgs = {name: data.get("timestamp", 0) for name, data in j.get("status", {}).get("messages", [])}
+            wf = j["prompt"][2]
+            out.append({"id": pid, "number": j["prompt"][0], "workflow": wf,
+                        "status": j.get("status", {}).get("status_str", "?"),
+                        "class_types": sorted({n["class_type"] for n in wf.values()}),
+                        "seconds": (msgs.get("execution_success", 0) - msgs.get("execution_start", 0)) / 1000})
+        return sorted(out, key=lambda j: j["number"], reverse=True)
+
     def queue(self, workflow: dict[str, Any]) -> str:
         r = self._http.post("/prompt", json={"prompt": workflow, "client_id": self.client_id})
         if r.status_code >= 400:

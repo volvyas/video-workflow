@@ -302,13 +302,25 @@ with the 4-step LoRA. 720×1280 is ~2.5× slower.
   and re-export (§6.4).
 - **Wan 2.2 TI2V 5B** (`wan2.2_ti2v_5B_fp16.safetensors` + `wan2.2_vae.safetensors`): fits in VRAM, 720p/24 fps,
   lower motion quality. Use its ComfyUI template, set `MOTION_FPS=24`.
-- **LTX-Video (LTX-2.x):** much faster, good for b-roll. Use its template, set `MOTION_I2V_FRAME_STEP=8`, `MOTION_FPS=24`.
+- **LTX-2.3 (verified 2026-11-17, now the default):** `workflows/i2v_ltx23.json` from ComfyUI's *LTX-2.3 Image to Video*
+  template (models: `ltx-2.3-22b-dev-fp8`, distilled LoRA, `gemma_3_12B_it_fp4_mixed`, spatial upscaler x2).
+  ~80 s per 5 s clip at 720×1280 on the 5070 Ti. Settings: `MOTION_WIDTH=720 MOTION_HEIGHT=1280 MOTION_FPS=25
+  MOTION_I2V_FRAME_STEP=8 MOTION_I2V_MAX_FRAMES=153`. The template's "Duration" node now takes the frame count.
 - `MOTION_SCENES=first:2` gives real motion only to the hook scenes and uses Ken Burns for the rest. This cuts render time a lot.
+
+**Images, verified 2026-11-17:** `workflows/image_zimage_turbo.json` from the *Z-Image-Turbo* template
+(`z_image_turbo_bf16` in `diffusion_models/`, `qwen_3_4b` in `text_encoders/`, `ae.safetensors` in `vae/`), 8 steps,
+~12 s per 768×1344 image. The template ships with the fast preview decoder `taef1`; the pipeline copy uses the full `ae`.
 
 ### 6.4 Using any ComfyUI workflow
 
-1. Build or open the workflow in ComfyUI and check it works.
-2. *Workflow → Export (API)* and save into `workflows/`.
+1. Build or open the workflow in ComfyUI (e.g. *Workflow → Browse Templates*) and run it once in the browser.
+2. Pull that job from the laptop, no export needed (ComfyUI keeps every job in API format):
+   ```bash
+   uv run shorts comfy pull                                  # lists recent jobs
+   uv run shorts comfy pull workflows/my.json --job 1        # saves one
+   ```
+   (Or *Workflow → Export (API)* in ComfyUI and copy the file into `workflows/`.)
 3. List the nodes: `uv run shorts comfy inspect workflows/my.json`
 4. Mark the inputs the pipeline should fill:
    ```bash
