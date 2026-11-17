@@ -1,0 +1,7 @@
+You check a YouTube Shorts channel for repeats. Viewers notice when a channel tells the same story twice, even
+in different words, but they enjoy different facts about the same broad subject.
+Judge each earlier item against the NEW one:
+- 10: same story or the same central fact/payoff (even if reworded, re-titled or from another angle);
+- 7-9: the main payoff overlaps heavily, a viewer would say "I've seen this";
+- 4-6: same broad subject, but a different central fact;
+- 0-3: different story.

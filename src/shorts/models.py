@@ -85,6 +85,7 @@ class StoredIdea(Idea):
     id: str
     topic: str
     used_by: str | None = None  # run id that consumed this idea
+    similar_to: list[str] = Field(default_factory=list)  # earlier history entries it resembles (not auto-picked)
 
 
 class IdeaPool(BaseModel):

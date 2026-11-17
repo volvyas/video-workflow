@@ -15,7 +15,7 @@ Suggestions made during design, with their status. ✅ done · 🔄 in progress 
 | 3b | **Sound effects on cuts** (whoosh/hit from `assets/sfx/`) | Pattern interrupts hold attention | ✅ `SFX_DIR` (add sounds to `assets/sfx/`) |
 | 3c | **Real motion on the hook** (`MOTION_SCENES=first:2`) | The first second decides the swipe | ✅ already supported |
 | 3d | **Consistent visual style** per video (style field in the script; optionally a style LoRA or reference image in the workflow) | Recognizable channel look | ✅ `visual_style` field; LoRA/IP-Adapter in workflow ⬜ |
-| 4 | **Analytics feedback loop**: YouTube Analytics API → retention/views per video → feed the best and worst performers into the ideas prompt | Biggest long-term lever; avoids "content farm" drift | ⬜ |
+| 4 | **Analytics feedback loop**: YouTube Analytics API → retention/views per video → feed the best and worst performers into the ideas prompt | Biggest long-term lever; avoids "content farm" drift | 🔄 script history with `popular` status feeds the ideas prompt (marked by hand); automatic marking from Analytics ⬜ |
 | 5a | **Unattended runs**: nightly cron/systemd timer renders the next N ideas | Hands-off production | ⬜ |
 | 5b | **Auto-scheduled uploads** 1–3/day via `publishAt` | Steady cadence | ⬜ (uploader supports `--publish-at`; needs a scheduler) |
 | 5c | **Notification** when a batch is ready for review | | ⬜ |
@@ -35,6 +35,9 @@ Suggestions made during design, with their status. ✅ done · 🔄 in progress 
 | 8a | **Better LLM quality for writing**: try a higher quant of Qwen3.8-Flash-Next if it fits (IQ2 ≈ 66–79 GB vs 80 GB RAM+VRAM), or a smaller model at Q4–Q6 for script writing (faster, often better than 1.6-bit), A/B via `-e` env files | UD-IQ1_S scripts: rewrites shrink, add new factual errors, one sentence repeated; ~9 tok/s | ⬜ your call |
 | 8b | **Split roles across models**: big model judges/fact-checks (`REVIEW_LLM_PROVIDER`), a faster/better-writing model drafts (`SCRIPT_LLM_PROVIDER`) | Different strengths; needs a second provider instance (e.g. `ollama` + `openai_compat`) | ⬜ supported today |
 | 8c | **Fact-check ideas before scripting**: reject ideas whose premise is false (e.g. "more life below than space above") | The review fixes claims, but a false premise poisons every rewrite | ⬜ |
+| 8e | **Script history + repeat check** (your request) | Don't tell the same story twice; learn from what worked | ✅ `shorts history`, `SIMILARITY_PROVIDER` |
+| 8f | **Auto-`popular` from YouTube Analytics** (e.g. top 20% by views or average view %), refreshed by a daily job | Removes the manual marking; ideas prompt learns on its own | ⬜ needs Analytics API scope on the OAuth client |
+| 8g | **"Rejected because…" in the ideas prompt**: pass the notes of rejected entries so the LLM learns what you don't want | Notes are already stored in the status log | ✅ |
 | 8d | **Load the vision projector** (`--mmproj`) on the AI box | Enables the image check with the same model | ⬜ your action |
 
 ## Decisions log

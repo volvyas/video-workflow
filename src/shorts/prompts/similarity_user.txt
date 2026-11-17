@@ -1,0 +1,7 @@
+NEW:
+$new
+
+EARLIER:
+$earlier
+
+List only the earlier items (by number) that score 4 or more. Return an empty list if none do.

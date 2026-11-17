@@ -351,6 +351,22 @@ Bad ones are re-rolled up to `IMAGE_QA_MAX_RETRIES` times, and the best candidat
 - Needs a vision-capable LLM (Qwen3.8-Flash-Next with `--mmproj`, or a small one such as Qwen-VL via
   `IMAGE_QA_LLM_PROVIDER`).
 
+**Repeat check / script history** (§6a in ARCHITECTURE.md): every run is recorded in `history/scripts.json`.
+```bash
+uv run shorts history sync                      # once: add runs made before the history existed
+uv run shorts history list [-s popular] [--topic "the deep ocean"]
+uv run shorts history mark <run> -s popular     # or rejected; --note "why"
+uv run shorts history similar "an idea text"    # or a run id; --field script compares narrations
+```
+- `SIMILARITY_PROVIDER=llm` (default in `.env.example`) asks your LLM, about 5–15 s per check with Qwen. Checks run
+  for every new idea, and twice per run. Empty history means no LLM call.
+- `SIMILARITY_PROVIDER=embeddings` is faster and needs an embeddings server, e.g. on the AI box:
+  `llama-server -m nomic-embed-text-v1.5.Q8_0.gguf --embeddings --port 8081 --host 0.0.0.0` (~150 MB, runs on CPU),
+  then `SIMILARITY_EMBEDDINGS_BASE_URL=http://<ai-box-ip>:8081/v1`. Tune `SIMILARITY_EMBEDDINGS_THRESHOLD`
+  with `shorts history similar`.
+- `SIMILARITY_PROVIDER=lexical`: no model, instant, but only catches shared words.
+- `HISTORY_ON_SIMILAR=warn` notes it (`shorts status`, ⚠ in `list-ideas`); `fail` stops the run.
+
 ## 9. YouTube upload
 
 1. <https://console.cloud.google.com> → new project → *APIs & Services* → enable **YouTube Data API v3**.

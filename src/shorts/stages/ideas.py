@@ -39,10 +39,14 @@ def generate_ideas(ctx: Context, topic: str, count: int) -> list[StoredIdea]:
     existing = "\n".join(f"- {i.title}: {i.angle}" for i in pool.ideas) or "(none yet)"
     system = render("ideas_system", app.prompts_dir, channel_brief=app.channel_brief,
                     seconds=app.video_target_seconds, language=app.content_language)
-    prompt = render("ideas_user", app.prompts_dir, topic=topic, count=count, existing=existing)
+    from shorts import history
+
+    prompt = render("ideas_user", app.prompts_dir, topic=topic, count=count, existing=existing,
+                    history=history.prompt_context(app, topic))
     batch = ctx.llm("ideas").generate_json(system=system, prompt=prompt, schema=IdeaBatch)
 
     seen = {_norm(i.title) for i in pool.ideas}
+    past = history.load(app)
     base = slugify(topic, 24)
     new: list[StoredIdea] = []
     for idea in batch.ideas:
@@ -51,6 +55,9 @@ def generate_ideas(ctx: Context, topic: str, count: int) -> list[StoredIdea]:
             continue
         seen.add(key)
         stored = StoredIdea(id=f"{base}-{len(pool.ideas) + 1:03d}", topic=topic, **idea.model_dump())
+        if app.history_enabled:
+            stored.similar_to = [str(m) for m in history.find_similar(
+                ctx, f"{idea.title}. {idea.hook} {idea.angle}", field="idea", history=past)[:3]]
         pool.ideas.append(stored)
         new.append(stored)
     save_pool(app, pool)
@@ -58,7 +65,8 @@ def generate_ideas(ctx: Context, topic: str, count: int) -> list[StoredIdea]:
 
 
 def take_unused(app: AppSettings, topic: str, n: int) -> list[StoredIdea]:
-    return [i for i in load_pool(app, topic).ideas if not i.used_by][:n]
+    """Unused ideas, skipping those that resemble earlier videos (use them explicitly with --idea)."""
+    return [i for i in load_pool(app, topic).ideas if not i.used_by and not i.similar_to][:n]
 
 
 def find_idea(app: AppSettings, topic: str, idea_id: str) -> StoredIdea:

@@ -22,7 +22,7 @@ def make_ctx(tmp_path, **extra) -> Context:
         "LLM_PROVIDER": "mock", "TTS_PROVIDER": "mock", "ALIGN_PROVIDER": "proportional",
         "IMAGE_PROVIDER": "mock", "MOTION_PROVIDER": "mock", "MOTION_FALLBACK": "kenburns",
         "LLM_MOCK_SCENES": "3", "VIDEO_WIDTH": "216", "VIDEO_HEIGHT": "384", "IMAGE_WIDTH": "216",
-        "IMAGE_HEIGHT": "384", "RUNS_DIR": str(tmp_path / "runs"), "IDEAS_DIR": str(tmp_path / "ideas"),
+        "IMAGE_HEIGHT": "384", "RUNS_DIR": str(tmp_path / "runs"), "IDEAS_DIR": str(tmp_path / "ideas"), "HISTORY_FILE": str(tmp_path / "history.json"),
         "MUSIC_DIR": str(music), "SFX_DIR": str(sfx), "CAPTION_FONT_SIZE": "20", "SEED": "1",
     }
     values.update({k.upper(): str(v) for k, v in extra.items()})

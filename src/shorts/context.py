@@ -8,7 +8,8 @@ import random
 from shorts.config import Env
 from shorts.media import ffmpeg
 from shorts.providers.base import (
-    Aligner, ImageProvider, LLMProvider, MotionProvider, Provider, SearchProvider, TTSProvider, Uploader,
+    Aligner, ImageProvider, LLMProvider, MotionProvider, Provider, SearchProvider, SimilarityProvider, TTSProvider,
+    Uploader,
 )
 from shorts.registry import create
 
@@ -51,6 +52,14 @@ class Context:
 
     def search(self) -> SearchProvider:
         return self.provider("search", self.app.search_provider)  # type: ignore[return-value]
+
+    def similarity(self) -> SimilarityProvider | None:
+        name = self.app.similarity_provider
+        if not name or name == "none":
+            return None
+        p = self.provider("similarity", name)
+        p.llm_factory = lambda: self.llm("similarity")  # type: ignore[attr-defined]
+        return p  # type: ignore[return-value]
 
     def uploader(self) -> Uploader:
         return self.provider("upload", self.app.uploader)  # type: ignore[return-value]

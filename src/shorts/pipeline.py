@@ -6,6 +6,7 @@ import logging
 import traceback
 from collections.abc import Callable
 
+from shorts import history
 from shorts.context import Context
 from shorts.media.assemble import assemble
 from shorts.models import StoredIdea
@@ -27,9 +28,18 @@ def _provider_name(ctx: Context, stage: str) -> str:
     }.get(stage, "")
 
 
+def _script(ctx: Context, run: Run) -> None:
+    history.check_idea(ctx, run)  # before spending LLM time on the script
+    script.write_script(ctx, run)
+    try:
+        history.check_script(ctx, run)
+    finally:
+        history.record(ctx, run, "script")  # recorded as draft; a similarity stop turns it into auto_rejected
+
+
 def _runner(stage: str) -> Callable[[Context, Run, set[int] | None], object]:
     return {
-        "script": lambda c, r, o: script.write_script(c, r),
+        "script": lambda c, r, o: _script(c, r),
         "review": lambda c, r, o: review.review_script(c, r),
         "voice": voice.synthesize,
         "align": lambda c, r, o: align.align(c, r),
@@ -94,10 +104,13 @@ def execute(ctx: Context, runs: list[Run], stages: list[str] | None = None, *, f
             try:
                 _runner(stage)(ctx, r, only_scenes)
                 r.finish(stage)
+                if stage != "script":  # the script stage records itself
+                    history.record(ctx, r, stage)
             except Exception as e:  # noqa: BLE001 - one bad run must not stop the batch
                 log.error("[%s] stage %s failed: %s", r.id, stage, e)
                 log.debug(traceback.format_exc())
                 r.fail(stage, f"{type(e).__name__}: {e}")
+                history.record_failure(ctx, r, stage, e)
                 status[r.id] = f"{stage}: {e}"
         if stage in _UNLOAD_AFTER:
             ctx.unload(_UNLOAD_AFTER[stage])

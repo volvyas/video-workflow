@@ -105,6 +105,10 @@ class Aligner(Provider):
 class Uploader(Provider):
     def upload(self, video: Path, meta: VideoMeta) -> str: ...      # returns URL/ID
 
+class SimilarityProvider(Provider):
+    threshold: float                          # from the provider's THRESHOLD setting
+    def scores(self, query: str, docs: list[str]) -> list[float]: ...  # 0..1 per earlier text
+
 class Provider(ABC):
     name: ClassVar[str]                       # registry key, e.g. "claude"
     Settings: ClassVar[type[BaseModel]]       # typed settings model
@@ -131,6 +135,9 @@ class Provider(ABC):
 | Align  | `faster_whisper` | Word-level timestamps from the actual audio |
 | Align  | `proportional`   | No deps: spreads words over the audio duration by character count |
 | Search | `ddgs`, `searxng`, `mock` | Web search for the fact-check when the LLM has none (local models) |
+| Similarity | `llm`        | **Default.** One LLM call per check: the 30 closest earlier entries are listed, the model names the ones telling the same story (score/10). Understands paraphrases |
+| Similarity | `embeddings` | Cosine of vectors from any OpenAI-compatible `/v1/embeddings` server (e.g. a second llama-server with nomic-embed); cached in `history/embeddings.json` |
+| Similarity | `lexical`    | TF-IDF word overlap, no model, instant; misses paraphrases (fallback / tests) |
 | Upload | `youtube`        | YouTube Data API v3, OAuth, private/scheduled uploads |
 | Upload | `none`           | Leaves the video in the run folder |
 
@@ -183,7 +190,8 @@ runs/2026-11-16_1530_space-facts-black-holes/
 ```
 
 Topic-level idea pools live in `ideas/<topic-slug>.json`. The `ideas` command appends to them and marks
-ideas as used, so the same idea is never produced twice.
+ideas as used, so the same idea is never produced twice. Across topics and paraphrases, the script history (§6a)
+catches repeats.
 
 **Scene** (from the script LLM):
 `narration`, `image_prompt`, `motion_prompt`, `camera` (Ken Burns hint: `zoom_in | zoom_out | pan_left | pan_right | pan_up | pan_down`), `on_screen_text` (optional).
@@ -214,6 +222,34 @@ you've watched it. Single scenes can be regenerated with `shorts redo <run> --st
 its dependents (`run.py: DEPENDENTS`) and rebuilds them.
 
 ---
+
+## 6a. Script history & repeat check
+
+`history.py`, file `HISTORY_FILE` (default `history/scripts.json`, outside `runs/` so it survives cleaning runs).
+One entry per run: idea (title, hook, angle), final script title + narration, review score, upload URL, current
+status and a status log (`status`, `at`, `by: auto|human`, `note`).
+
+| Status | Set by | When |
+|---|---|---|
+| `draft` | auto | script written (again after a successful review or `shorts accept`) |
+| `auto_rejected` | auto | review gate stopped the run (`NeedsHumanReview`) or `HISTORY_ON_SIMILAR=fail` stopped it |
+| `rejected` | you | `shorts history mark RUN -s rejected --note "…"` |
+| `created` | auto | `assemble` produced `final.mp4` |
+| `uploaded` | auto | `shorts upload` |
+| `popular` | you | `shorts history mark RUN -s popular` (later: from YouTube Analytics, recommendation 4) |
+
+Automatic updates never overwrite a manual status. Hooks: `pipeline.execute` calls `history.record` after a stage
+finishes and `history.record_failure` after a quality-gate failure; `shorts upload` / `accept` call it too.
+
+**Where similarity is checked** (provider `SIMILARITY_PROVIDER`, threshold per provider):
+1. `shorts ideas` / `make` generating ideas: the ideas prompt gets the topic's history (avoid these) and the popular
+   entries of all topics (more like these, different subject). Each new idea is checked; similar ones get `similar_to`
+   in the idea pool, are shown with ⚠, and `make` doesn't pick them automatically (`--idea ID` still can).
+2. Script stage, before the LLM writes: the run's idea vs the history's ideas.
+3. Script stage, after writing: the narration vs the history's narrations.
+
+2 and 3 write `similar` notes into the manifest (shown by `shorts status`) and log a warning; with
+`HISTORY_ON_SIMILAR=fail` they stop the run instead (status `auto_rejected`).
 
 ## 6b. Fact-check research flow
 

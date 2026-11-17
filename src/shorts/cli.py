@@ -16,6 +16,8 @@ from shorts.context import Context
 app = typer.Typer(no_args_is_help=True, add_completion=False, help="Automated YouTube Shorts pipeline.")
 comfy_app = typer.Typer(no_args_is_help=True, help="ComfyUI workflow helpers.")
 app.add_typer(comfy_app, name="comfy")
+history_app = typer.Typer(no_args_is_help=True, help="History of produced scripts and their statuses.")
+app.add_typer(history_app, name="history")
 
 _state: dict = {}
 
@@ -72,6 +74,9 @@ def ideas_cmd(topic: str, count: Annotated[int, typer.Option("--count", "-n")] =
     new = ideas.generate_ideas(ctx(), topic, count)
     for i in new:
         typer.echo(f"{i.id}  {i.title}\n        hook: {i.hook}")
+        for s in i.similar_to:
+            typer.secho(f"        ⚠ similar to {s} (not picked automatically; use --idea {i.id} to make it anyway)",
+                        fg="yellow")
     typer.echo(f"\n{len(new)} new ideas → {ideas.pool_path(ctx().app, topic)}")
 
 
@@ -84,6 +89,8 @@ def list_ideas(topic: str, all_: Annotated[bool, typer.Option("--all", help="Inc
         if i.used_by and not all_:
             continue
         typer.echo(f"{i.id}  {'[used] ' if i.used_by else ''}{i.title}")
+        for s in i.similar_to:
+            typer.secho(f"        ⚠ similar to {s}", fg="yellow")
 
 
 # ------------------------------------------------------------------ make / resume / redo
@@ -156,8 +163,11 @@ def accept(runs: list[Path]):
     """Accept the current script.json of run(s) after a failed/low-score review, so `resume` continues."""
     from shorts.stages.review import accept as accept_review
 
+    from shorts import history
+
     for r in _runs(runs):
         accept_review(r)
+        history.record(ctx(), r, "review")
         typer.echo(f"accepted script of {r.id}; now run: shorts resume {r.id}")
 
 
@@ -179,6 +189,8 @@ def status(runs: Annotated[Optional[list[Path]], typer.Argument()] = None):
         for s in STAGES:
             if r.stage(s).error:
                 typer.secho(f"    {s}: {r.stage(s).error}", fg="red")
+        for note in r.stage("script").notes.get("similar", []):
+            typer.secho(f"    ⚠ {note}", fg="yellow")
         if r.manifest.upload_url:
             typer.echo(f"    uploaded: {r.manifest.upload_url}")
 
@@ -210,6 +222,9 @@ def upload(
         raise
     r.manifest.upload_url = url
     r.finish("upload", url=url)
+    from shorts import history
+
+    history.record(c, r, "upload")
     typer.secho(f"uploaded: {url}", fg="green")
 
 
@@ -222,9 +237,9 @@ def providers():
     a = ctx().app
     selected = {"llm": a.llm_provider, "tts": a.tts_provider, "align": a.align_provider,
                 "image": a.image_provider, "motion": f"{a.motion_provider} (fallback: {a.motion_fallback})",
-                "upload": a.uploader}
+                "search": a.search_provider, "similarity": a.similarity_provider, "upload": a.uploader}
     for kind, names in BUILTINS.items():
-        typer.echo(f"{kind:7s} selected={selected[kind]:<32s} available: {', '.join(names)}")
+        typer.echo(f"{kind:10s} selected={selected.get(kind, '?'):<32s} available: {', '.join(names)}")
 
 
 @app.command()
@@ -236,7 +251,7 @@ def check(
     a = c.app
     targets = [("llm", a.llm_for("ideas")), ("llm", a.llm_for("script")), ("tts", a.tts_provider),
                ("align", a.align_provider), ("image", a.image_provider), ("motion", a.motion_provider),
-               ("motion", a.motion_fallback), ("upload", a.uploader)]
+               ("motion", a.motion_fallback), ("similarity", a.similarity_provider), ("upload", a.uploader)]
     ok = True
     for kind, name in dict.fromkeys(t for t in targets if t[1] and t[1] != "none" or t[0] == "upload"):
         if skip and kind in skip:
@@ -283,6 +298,87 @@ def llm_test(topic: str = "the deep ocean", stage: str = "ideas"):
     prompt = render("ideas_user", a.prompts_dir, topic=topic, count=3, existing="(none)")
     out = c.llm(stage).generate_json(system=system, prompt=prompt, schema=IdeaBatch)
     typer.echo(out.model_dump_json(indent=2))
+
+
+# ------------------------------------------------------------------ history
+@history_app.command("list")
+def history_list(
+    status_: Annotated[Optional[list[str]], typer.Option("--status", "-s", help="Filter, repeatable")] = None,
+    topic: Annotated[Optional[str], typer.Option(help="Only this topic")] = None,
+    limit: Annotated[int, typer.Option("--limit", "-n")] = 30,
+):
+    """Show produced scripts, newest first."""
+    from shorts import history
+
+    color = {"draft": None, "auto_rejected": "red", "rejected": "red", "created": "cyan", "uploaded": "green",
+             "popular": "magenta"}
+    entries = [e for e in history.load(ctx().app).entries
+               if (not status_ or e.status in status_) and (not topic or e.topic == topic)]
+    for e in sorted(entries, key=lambda e: e.created_at, reverse=True)[:limit]:
+        score = f" score {e.review_score}" if e.review_score is not None else ""
+        typer.secho(f"{e.status:13s} {e.id}", fg=color.get(e.status))
+        typer.echo(f"              {e.title}{score}" + (f"  {e.upload_url}" if e.upload_url else ""))
+    typer.echo(f"\n{len(entries)} entr{'y' if len(entries) == 1 else 'ies'}; statuses: {', '.join(history.STATUSES)}")
+
+
+@history_app.command("show")
+def history_show(run: str):
+    """Full entry of one run, with its status log."""
+    from shorts import history
+
+    e = history.load(ctx().app).get(Path(run).name)
+    if e is None:
+        raise typer.BadParameter(f"{run} is not in the history")
+    typer.echo(e.model_dump_json(indent=2))
+
+
+@history_app.command("mark")
+def history_mark(
+    runs: list[str],
+    status_: Annotated[str, typer.Option("--status", "-s", help="rejected | popular | created | uploaded | draft")],
+    note: Annotated[str, typer.Option(help="Why (kept in the status log)")] = "",
+):
+    """Set the status of run(s) by hand, e.g. mark a video popular or reject a script."""
+    from shorts import history
+
+    for run in runs:
+        e = history.set_status(ctx().app, Path(run).name, status_, by="human", note=note)
+        typer.echo(f"{e.id}: {e.status}")
+
+
+@history_app.command("similar")
+def history_similar(
+    text: Annotated[str, typer.Argument(help="An idea or script text, or a run id")],
+    field: Annotated[str, typer.Option(help="idea | script")] = "idea",
+):
+    """Check a text (or an existing run) against the history with the configured similarity provider."""
+    from shorts import history
+
+    c = ctx()
+    exclude: set[str] = set()
+    run_dir = Path(c.app.runs_dir) / Path(text).name
+    if (run_dir / "manifest.json").exists():
+        (r,) = _runs([run_dir])
+        exclude = {r.id}
+        if field == "script" and (r.path / "script.json").exists():
+            s = r.script()
+            text = f"{s.title}. {s.narration}"
+        else:
+            i = r.idea()
+            text = f"{i.title}. {i.hook} {i.angle}"
+    matches = history.find_similar(c, text, field=field, exclude=exclude)  # type: ignore[arg-type]
+    for m in matches:
+        typer.secho(f"⚠ {m}", fg="yellow")
+    typer.echo(f"{len(matches)} similar (threshold {c.similarity().threshold if c.similarity() else '-'})")
+
+
+@history_app.command("sync")
+def history_sync():
+    """Add every existing run folder to the history (backfill), refreshing titles/narration/statuses."""
+    from shorts import history
+
+    entries = history.sync(ctx())
+    typer.echo(f"{len(entries)} run(s) in {ctx().app.history_file}")
 
 
 # ------------------------------------------------------------------ comfy helpers

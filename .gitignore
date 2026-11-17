@@ -6,6 +6,7 @@ __pycache__/
 !.env.example
 runs/
 ideas/
+history/
 secrets/
 assets/voices/*
 assets/music/*

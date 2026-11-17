@@ -17,6 +17,7 @@ class MockSettings(ProviderSettings):
     review_score: int = 8  # score returned by script reviews
     image_score: int = 8  # score returned by image checks (set low to exercise re-rolls)
     web_search: bool = True
+    similarity_score: int = 2  # 0-10 returned for every candidate by the llm similarity check
 
 
 class MockLLM(LLMProvider):
@@ -34,6 +35,10 @@ class MockLLM(LLMProvider):
         return "Mock research: all claims look correct. Source: https://example.com"
 
     def generate_json(self, *, system: str, prompt: str, schema: type[T], images: list[Path] | None = None) -> T:
+        if schema.__name__ == "SimilarityJudgement":
+            n = len(re.findall(r"^\d+\. ", prompt.split("EARLIER:")[-1], re.M))
+            return schema.model_validate({"items": [{"index": i + 1, "score": self.settings.similarity_score,
+                                                     "reason": "mock"} for i in range(n)]})
         if schema.__name__ == "SearchQueries":
             return schema(queries=["mock claim one", "mock claim two"])
         if schema is ScriptReview:

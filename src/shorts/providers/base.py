@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
+from collections.abc import Callable
 from typing import TYPE_CHECKING, ClassVar, TypeVar
 
 from pydantic import BaseModel, ConfigDict
@@ -134,6 +135,23 @@ class SearchProvider(Provider):
     def search(self, query: str, max_results: int) -> list[SearchResult]: ...
 
 
+class SimilarityProvider(Provider):
+    """Scores how similar a text is to each of several earlier texts (0 = unrelated, 1 = same story)."""
+
+    kind = "similarity"
+    # Set by Context: returns the LLM provider for LLM-based similarity (SIMILARITY_LLM_PROVIDER / LLM_PROVIDER).
+    llm_factory: "Callable[[], LLMProvider] | None" = None
+
+    @property
+    def threshold(self) -> float:
+        """Scores at or above this count as "similar". Each provider exposes it as a THRESHOLD setting."""
+        return float(getattr(self.settings, "threshold", 0.5))
+
+    @abstractmethod
+    def scores(self, query: str, docs: list[str]) -> list[float]:
+        """One score in [0, 1] per doc."""
+
+
 class Uploader(Provider):
     kind = "upload"
 
@@ -150,4 +168,5 @@ KIND_BASES: dict[str, type[Provider]] = {
     "motion": MotionProvider,
     "upload": Uploader,
     "search": SearchProvider,
+    "similarity": SimilarityProvider,
 }

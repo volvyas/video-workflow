@@ -29,6 +29,7 @@ class AppSettings(BaseModel):
     script_llm_provider: str | None = None
     review_llm_provider: str | None = None
     image_qa_llm_provider: str | None = None  # must be vision-capable
+    similarity_llm_provider: str | None = None  # only for SIMILARITY_PROVIDER=llm
     tts_provider: str = "mock"
     align_provider: str = "proportional"
     image_provider: str = "mock"
@@ -37,6 +38,7 @@ class AppSettings(BaseModel):
     motion_scenes: str = "all"  # all | none | first:N | every:N
     uploader: str = "none"
     search_provider: str = "none"  # web search for local-LLM fact-checking: ddgs | searxng | none
+    similarity_provider: str = "lexical"  # history repeat check: lexical | embeddings | llm | none
 
     # --- content ------------------------------------------------------------
     content_language: str = "English"
@@ -57,6 +59,12 @@ class AppSettings(BaseModel):
     image_qa_enabled: bool = True
     image_qa_min_score: int = 6
     image_qa_max_retries: int = 2
+
+    # --- history (repeat check) ------------------------------------------------
+    history_enabled: bool = True
+    history_file: Path = Path("history/scripts.json")
+    history_on_similar: str = "warn"  # warn (note it and continue) | fail (stop the run before/after the script)
+    history_prompt_limit: int = 40  # max history entries per section shown to the ideas LLM
 
     # --- retention ------------------------------------------------------------
     sfx_dir: Path | None = Path("assets/sfx")  # whooshes/hits played on scene cuts

@@ -46,6 +46,11 @@ BUILTINS: dict[str, dict[str, str]] = {
         "searxng": "shorts.providers.search.searxng:SearXNGSearch",
         "mock": "shorts.providers.search.mock:MockSearch",
     },
+    "similarity": {
+        "lexical": "shorts.providers.similarity.lexical:LexicalSimilarity",
+        "embeddings": "shorts.providers.similarity.embeddings:EmbeddingsSimilarity",
+        "llm": "shorts.providers.similarity.llm:LLMSimilarity",
+    },
     "upload": {
         "youtube": "shorts.providers.upload.youtube:YouTubeUploader",
         "none": "shorts.providers.upload.none:NoUpload",
