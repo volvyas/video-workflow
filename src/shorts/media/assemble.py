@@ -31,6 +31,21 @@ def pick_sfx(app: AppSettings, seed: int, count: int) -> list[Path]:
     return [rnd.choice(files) for _ in range(count)]
 
 
+def music_gain(app: AppSettings, voice: Path, music: Path) -> float:
+    """Linear gain for the music: MUSIC_LEVEL_DB relative to the voice's loudness (tracks vary by 10 dB or more),
+    or the fixed MUSIC_VOLUME."""
+    if app.music_level_db is None:
+        return app.music_volume
+    v, m = ffmpeg.loudness(voice), ffmpeg.loudness(music)
+    if v is None or m is None:
+        log.warning("could not measure loudness (voice %s, music %s): using MUSIC_VOLUME", v, m)
+        return app.music_volume
+    gain_db = (v + app.music_level_db) - m
+    log.info("music: %.1f LUFS, voice %.1f LUFS -> gain %+.1f dB (music %+.0f dB vs voice)", m, v, gain_db,
+             app.music_level_db)
+    return 10 ** (gain_db / 20)
+
+
 def normalize_clip(app: AppSettings, clip: Path, target: float, out: Path) -> None:
     """Scale/crop to the output frame, then trim, or slow down (≤ max_slowdown) and freeze, to hit `target`."""
     W, H, fps = app.video_width, app.video_height, app.video_fps
@@ -91,7 +106,7 @@ def assemble(app: AppSettings, run: Run, clips: list[Path], *, out: Path | None 
     if music:
         parts += [
             "[1:a]aresample=48000,asplit=2[voice][key]",
-            f"[2:a]aresample=48000,volume={app.music_volume}[m]",
+            f"[2:a]aresample=48000,volume={music_gain(app, run.path / 'audio' / 'voice.wav', music):.4f}[m]",
             "[m][key]sidechaincompress=threshold=0.03:ratio=6:attack=15:release=350[duck]",
         ]
         mix += ["[voice]", "[duck]"]

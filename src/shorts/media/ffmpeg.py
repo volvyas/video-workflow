@@ -81,6 +81,19 @@ def duration(path: Path) -> float:
     return int(h) * 3600 + int(mnt) * 60 + float(s)
 
 
+def loudness(path: Path) -> float | None:
+    """Integrated loudness in LUFS (EBU R128), or None if it can't be measured (e.g. silence)."""
+    import re
+
+    proc = subprocess.run([ffmpeg_bin(), "-hide_banner", "-nostats", "-i", str(path), "-filter_complex", "ebur128",
+                           "-f", "null", "-"], capture_output=True, text=True)
+    found = re.findall(r"^\s+I:\s+(-?[\d.]+) LUFS", proc.stderr, re.M)
+    if not found:
+        return None
+    v = float(found[-1])
+    return v if v > -70 else None
+
+
 def concat_audio(inputs: list[Path], gaps: list[float], out: Path, sample_rate: int = 44100) -> None:
     """Concatenate audio files, appending gaps[i] seconds of silence after input i."""
     args: list[str] = []

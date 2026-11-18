@@ -61,3 +61,20 @@ def test_old_scripts_without_music_still_load(tmp_path):
     s = Script.model_validate({"title": "t", "description": "d", "tags": [], "scenes": []})
     assert s.music.tags == "" and s.music.key == "A minor"
     assert json.loads(s.model_dump_json())["music"]["bpm"] == 90
+
+
+def test_music_level_follows_the_voice(tmp_path):
+    from shorts.media import ffmpeg
+    from shorts.media.assemble import music_gain
+
+    loud, quiet = tmp_path / "loud.wav", tmp_path / "quiet.wav"
+    ffmpeg.run(["-f", "lavfi", "-i", "sine=frequency=440:duration=3", "-af", "volume=0.9", loud])
+    ffmpeg.run(["-f", "lavfi", "-i", "sine=frequency=440:duration=3", "-af", "volume=0.05", quiet])
+    ctx = make_ctx(tmp_path, music_level_db="-12")
+    # same voice, a loud and a quiet track: both end up 12 dB under the voice
+    for track in (loud, quiet):
+        gain = music_gain(ctx.app, quiet, track)
+        import math
+        level = ffmpeg.loudness(track) + 20 * math.log10(gain)
+        assert abs(level - (ffmpeg.loudness(quiet) - 12)) < 0.2
+    assert music_gain(make_ctx(tmp_path, music_level_db="").app, quiet, loud) == 0.12
