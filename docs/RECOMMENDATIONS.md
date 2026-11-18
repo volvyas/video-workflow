@@ -43,6 +43,7 @@ Suggestions made during design, with their status. ✅ done · 🔄 in progress 
 | 8h2 | **Funny AI edits of existing clips** (video-to-video): restyle, add objects or animate a character in clips you already have (ComfyUI templates: Wan VACE v2v / inpainting, Wan Animate) | Works with existing cat videos, no shooting; large models, slow, experimental | ⏸ later experiment |
 | 8i | **30-second test batch** (`VIDEO_TARGET_SECONDS=30`) | Shorter Shorts usually reach a higher "% viewed" | ⬜ next batch |
 | 8j | **Channel growth plan**: targets, metrics, experiments, cadence, cross-posting | | ✅ [PROMOTION.md](PROMOTION.md) |
+| 8k | **Skit format** (viral "cat on a bicycle" style): 2–4 story-beat shots, no narration, several LTX takes per shot (pick on the storyboard), the clip's own generated sound kept, optional punchline caption, a recurring character (same start image or last frame → next shot) | Different audience from facts; original, clean jokes and a recurring character keep it monetizable | ⬜ test first: 1 Z-Image start frame + 4–6 LTX takes when the AI box is on |
 | 8d | **Load the vision projector** (`--mmproj`) on the AI box | Enables the image check with the same model | ⬜ your action |
 
 ## Decisions log
