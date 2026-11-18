@@ -72,15 +72,19 @@ def check_premise(ctx: Context, topic: str, idea: Idea) -> PremiseCheck:
     """Web research + LLM verdict on the idea's central claim."""
     import logging
 
-    from shorts.stages.research import research
+    from shorts.stages.research import NO_WEB_NOTE, research_report
 
     app = ctx.app
-    notes = research(ctx, topic, f"{idea.title}. {idea.hook} {idea.angle}") if app.review_web_search else ""
+    notes, stats = "", None
+    if app.review_web_search:
+        notes, stats = research_report(ctx, topic, f"{idea.title}. {idea.hook} {idea.angle}")
     check = ctx.llm("review").generate_json(
         system=render("premise_system", app.prompts_dir, channel_brief=app.channel_brief),
         prompt=render("premise_user", app.prompts_dir, topic=topic, title=idea.title, hook=idea.hook,
-                      angle=idea.angle, research=notes or "(none)"),
+                      angle=idea.angle, research=notes or (NO_WEB_NOTE if stats and stats.no_web else "(none)")),
         schema=PremiseCheck)
+    if stats is not None and stats.no_web:  # make it visible wherever the verdict is shown
+        check.explanation = f"[no web results: checked from model knowledge only] {check.explanation}"
     logging.getLogger("shorts.stage.ideas").info("premise of '%s': %s (%s)", idea.title, check.verdict,
                                                  check.explanation[:120])
     return check

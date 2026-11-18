@@ -170,7 +170,9 @@ def recheck_facts(ctx: Context, run: Run) -> dict:
     rounds = json.loads(path.read_text()) if path.exists() else []
     n = (rounds[-1]["round"] + 1) if rounds else 1
     review, research = judge_script(ctx, run, script, n)
+    stats = judge_script.last_stats  # type: ignore[attr-defined]
     rounds.append({"round": n, "recheck": True, "words": word_count(script), "research": research,
+                   "search": stats.model_dump() | {"warning": stats.warning()},
                    "script": script.model_dump(), "review": review.model_dump()})
     path.write_text(json.dumps(rounds, indent=2, ensure_ascii=False))
     rec = run.stage("review")
@@ -259,7 +261,9 @@ def summary(run: Run) -> dict[str, Any]:
         if r:
             review = {"score": r["review"]["score"], "hook_score": r["review"]["hook_score"], "round": r["round"],
                       "rounds": len(rounds), "claims": r["review"]["claims"], "problems": r["review"]["problems"],
-                      "stale": bool(notes.get("stale")), "edited_scenes": notes.get("edited_scenes", [])}
+                      "stale": bool(notes.get("stale")), "edited_scenes": notes.get("edited_scenes", []),
+                      "search_warning": (r.get("search") or {}).get("warning", ""),
+                      "search": r.get("search")}
     qa = run.stage("images").notes.get("qa", {})
     scenes = []
     for i, sc in enumerate(script.scenes if script else []):

@@ -50,8 +50,10 @@ class Context:
             return None
         return self.provider("motion", name)  # type: ignore[return-value]
 
-    def search(self) -> SearchProvider:
-        return self.provider("search", self.app.search_provider)  # type: ignore[return-value]
+    def search(self, name: str | None = None) -> SearchProvider:
+        p = self.provider("search", name or self.app.search_provider)
+        p.provider_factory = lambda n: self.search(n)  # type: ignore[attr-defined]
+        return p  # type: ignore[return-value]
 
     def music(self) -> MusicProvider:
         return self.provider("music", self.app.music_provider)  # type: ignore[return-value]

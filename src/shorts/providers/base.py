@@ -126,10 +126,13 @@ class SearchResult(BaseModel):
     title: str
     url: str
     snippet: str
+    text: str = ""  # the page's relevant text, when the provider has it (then the page isn't fetched)
 
 
 class SearchProvider(Provider):
     kind = "search"
+    # Set by Context: create another search provider by name (used by the combined `multi` provider).
+    provider_factory: "Callable[[str], SearchProvider] | None" = None
 
     @abstractmethod
     def search(self, query: str, max_results: int) -> list[SearchResult]: ...

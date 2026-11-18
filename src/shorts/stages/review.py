@@ -11,7 +11,7 @@ from shorts.context import Context
 from shorts.models import Script, ScriptReview
 from shorts.prompts import render
 from shorts.run import Run
-from shorts.stages.research import research as web_research
+from shorts.stages.research import NO_WEB_NOTE, ResearchStats, research_report
 from shorts.stages.script import generate_script, scene_plan, word_count, word_range
 
 log = logging.getLogger("shorts.stage.review")
@@ -22,17 +22,19 @@ class NeedsHumanReview(RuntimeError):
 
 
 def judge_script(ctx: Context, run: Run, script: Script, rnd: int = 1) -> tuple[ScriptReview, str]:
-    """One fact-check + critique of `script` (web research first when enabled). Returns (review, research notes)."""
+    """One fact-check + critique of `script` (web research first when enabled). Returns (review, research notes).
+    What the web search achieved is in `judge_script.last_stats` (also stored per round in review.json)."""
     app = ctx.app
     topic = run.manifest.topic
     lo, _, hi = word_range(app.video_target_seconds)
-    research = ""
+    research, stats = "", ResearchStats(mode="off")
     if app.review_web_search:
         log.info("[%s] fact-check round %d: web research", run.id, rnd)
-        research = web_research(ctx, topic, script.narration)
+        research, stats = research_report(ctx, topic, script.narration)
+    judge_script.last_stats = stats  # type: ignore[attr-defined]
     system = render("review_system", app.prompts_dir, channel_brief=app.channel_brief, words=f"{lo}-{hi}")
-    prompt = render("review_user", app.prompts_dir, topic=topic, research=research or "(none)",
-                    script=script.model_dump_json())
+    notes = research or (NO_WEB_NOTE if app.review_web_search and stats.no_web else "(none)")
+    prompt = render("review_user", app.prompts_dir, topic=topic, research=notes, script=script.model_dump_json())
     prompt += f"\n\nThe script has {word_count(script)} words of narration; the target is {lo}-{hi}."
     return ctx.llm("review").generate_json(system=system, prompt=prompt, schema=ScriptReview), research
 
@@ -66,7 +68,9 @@ def review_script(ctx: Context, run: Run) -> ScriptReview | None:
         bad = bad_claims(review)
         log.info("[%s] review round %d: score %d, hook %d, %d bad claim(s), %d words", run.id, rnd, review.score,
                  review.hook_score, len(bad), word_count(current))
+        stats = judge_script.last_stats  # type: ignore[attr-defined]
         rounds.append({"round": rnd, "words": word_count(current), "research": research,
+                       "search": stats.model_dump() | {"warning": stats.warning()},
                        "script": current.model_dump(), "review": review.model_dump()})
         if review.score >= app.review_min_score and not bad:
             break

@@ -59,6 +59,8 @@ class AppSettings(BaseModel):
     review_search_queries: int = 6  # local research: max search queries per round
     review_search_results: int = 4  # results per query
     review_fetch_pages: int = 3  # also read the full text of this many top pages (0 = snippets only)
+    search_cache_days: int = 30  # reuse search results this long (0 = off); search engines rate-limit
+    search_cache_file: Path | None = Path("history/search_cache.json")
     ideas_fact_check: bool = False  # check each idea's central claim (web search + LLM) before scripting
     storyboard_approval: bool = False  # stop before motion until approved on the storyboard page
     image_candidates: int = 1  # images per scene in the first round (pick on the storyboard; QA keeps the best)

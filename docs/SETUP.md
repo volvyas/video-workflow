@@ -158,13 +158,17 @@ Test: `uv run shorts llm-test`. It should print 3 ideas as JSON.
   Check that the tag's size fits your RAM + VRAM.
 
 ### 3.3 Web search for the fact-check
-Local models have no built-in web search, so the review stage does it itself: the LLM writes search queries, a
-search provider runs them, the top pages are read, and the LLM checks each claim against those sources (cited in `review.json`).
-- `SEARCH_PROVIDER=ddgs` (default): no API key or server. Install with `uv sync --extra search`. Tries the backends
-  in `SEARCH_DDGS_BACKENDS` until one answers (some are blocked on some networks).
-- `SEARCH_PROVIDER=searxng`: self-hosted metasearch, more reliable for heavy use:
-  `docker run -d -p 8888:8080 searxng/searxng`, enable `json` under `search.formats` in its `settings.yml`, then
-  set `SEARCH_SEARXNG_URL`.
+`SEARCH_PROVIDER=multi` (default): **Wikipedia** (official MediaWiki API: no key, no install, returns the article's
+relevant paragraphs) plus the open web through **ddgs** (DuckDuckGo & co., no key). Results are merged and ranked by
+relevance with a bonus for reliable domains (Wikipedia, NASA, NOAA, NIH, journals, `.gov`, `.edu`, ...); content
+farms and video sites (`SEARCH_MULTI_BLOCK`, e.g. `iere.org`, YouTube) are dropped. Results are cached for
+`SEARCH_CACHE_DAYS` (30) in `history/search_cache.json`, so repeated fact-checks don't trip rate limits.
+- ddgs is free but rate-limits heavy use; when it does, Wikipedia still answers. Self-hosted SearXNG
+  (`SEARCH_PROVIDER=searxng`) is optional and not needed.
+- **Failed searches are visible:** each fact-check round stores `search` stats in `review.json` (queries, failed,
+  sources); the storyboard shows a red warning when the check had no web results, and the judge is told so (it
+  then marks uncertain claims as unverifiable). Premise checks without web results say
+  "[no web results: checked from model knowledge only]".
 
 ### 3.4 Claude (optional, paid)
 The Claude API is billed **separately** from Claude.ai / Claude Code subscriptions: pay-as-you-go with its own API key

@@ -44,6 +44,8 @@ BUILTINS: dict[str, dict[str, str]] = {
     "search": {
         "ddgs": "shorts.providers.search.ddgs:DDGSSearch",
         "searxng": "shorts.providers.search.searxng:SearXNGSearch",
+        "wikipedia": "shorts.providers.search.wikipedia:WikipediaSearch",
+        "multi": "shorts.providers.search.multi:MultiSearch",
         "mock": "shorts.providers.search.mock:MockSearch",
     },
     "similarity": {

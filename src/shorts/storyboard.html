@@ -172,6 +172,7 @@ function render() {
                    : `<div class="panel small">No preview yet. "Build preview" makes an animatic from the current images, voice and music in a couple of minutes, without the GPU.</div>`}</div>
       <div>
         <div class="panel"><h3>Fact-check</h3>
+          ${rv.search_warning ? `<div style="color:${rv.search && rv.search.sources === 0 ? "var(--bad)" : "var(--warn)"};margin-bottom:8px;font-weight:600">⚠ ${esc(rv.search_warning)}</div>` : ""}
           ${rv.stale ? `<div style="color:var(--warn);margin-bottom:8px">Narration edited (scene ${rv.edited_scenes.join(", ")}) since this check.</div>` : ""}
           <button onclick="recheck()" ${runBusy("recheck") ? "disabled" : ""} style="margin-bottom:10px">${runBusy("recheck") ? "Checking… (web search + LLM)" : "Re-check facts"}</button>
           ${rv.score !== undefined ? `<div>Score <b>${rv.score}</b>/10 · hook ${rv.hook_score}/10 · round ${rv.round} of ${rv.rounds}</div>${claims}
