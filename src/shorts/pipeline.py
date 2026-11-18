@@ -6,7 +6,7 @@ import logging
 import traceback
 from collections.abc import Callable
 
-from shorts import history
+from shorts import history, storyboard
 from shorts.context import Context
 from shorts.media.assemble import assemble
 from shorts.models import StoredIdea
@@ -16,13 +16,14 @@ from shorts.stages import align, ideas, music, review, script, visuals, voice
 log = logging.getLogger("shorts.pipeline")
 
 # stages that run during `make`; upload is separate (review gate)
-BUILD_STAGES = ["script", "review", "voice", "align", "music", "images", "motion", "assemble"]
+BUILD_STAGES = ["script", "review", "voice", "align", "music", "images", "approve", "motion", "assemble"]
 
 
 def _provider_name(ctx: Context, stage: str) -> str:
     a = ctx.app
     return {
         "script": a.llm_for("script"), "review": a.llm_for("review"), "voice": a.tts_provider, "align": a.align_provider, "music": a.music_provider,
+        "approve": "storyboard" if a.storyboard_approval else "auto",
         "images": a.image_provider, "motion": f"{a.motion_provider}->{a.motion_fallback}",
         "assemble": "ffmpeg", "upload": a.uploader,
     }.get(stage, "")
@@ -44,6 +45,7 @@ def _runner(stage: str) -> Callable[[Context, Run, set[int] | None], object]:
         "voice": voice.synthesize,
         "align": lambda c, r, o: align.align(c, r),
         "music": lambda c, r, o: music.make_music(c, r),
+        "approve": lambda c, r, o: storyboard.require_approval(c, r),
         "motion": visuals.generate_motion,
         "assemble": lambda c, r, o: assemble(c.app, r, [visuals.scene_file(r, "clips", t.index) for t in r.timings()]),
     }[stage]
@@ -109,6 +111,12 @@ def execute(ctx: Context, runs: list[Run], stages: list[str] | None = None, *, f
                 r.finish(stage)
                 if stage != "script":  # the script stage records itself
                     history.record(ctx, r, stage)
+            except storyboard.AwaitingApproval as e:
+                rec = r.stage(stage)
+                rec.status, rec.error = storyboard.WAITING, None
+                r.save()
+                log.info("[%s] %s", r.id, e)
+                status[r.id] = f"waiting: {e}"
             except Exception as e:  # noqa: BLE001 - one bad run must not stop the batch
                 log.error("[%s] stage %s failed: %s", r.id, stage, e)
                 log.debug(traceback.format_exc())

@@ -426,6 +426,19 @@ uv run shorts history similar "an idea text"    # or a run id; --field script co
 - `SIMILARITY_PROVIDER=lexical`: no model, instant, but only catches shared words.
 - `HISTORY_ON_SIMILAR=warn` notes it (`shorts status`, ⚠ in `list-ideas`); `fail` stops the run.
 
+**Storyboard approval** (`STORYBOARD_APPROVAL=true`): every run stops after images and music, before AI motion
+(~85% of the GPU time). Review it on a local web page:
+```bash
+uv run shorts storyboard                    # http://localhost:8765/
+uv run shorts storyboard --host 0.0.0.0     # also from your phone on the home network (no password!)
+```
+Per run: title, script, fact-check claims with sources, music player (edit tags/bpm/key → regenerate), and one
+card per scene: image with earlier candidates (click to use one), the scene's voice, editable image prompt +
+**Re-roll**, and **AI motion / Still** (still = pan/zoom, no GPU). **Build preview** renders an animatic (stills +
+pan/zoom + voice + music + captions) on the laptop CPU. **Approve & render** runs motion + assembly (one render
+at a time, log in `runs/<run>/render.log`); **Reject** marks it rejected in the history with your note.
+Terminal equivalents: `shorts approve RUN`, `shorts reject RUN --note "..."`. Any edit after approval resets it.
+
 ## 9. YouTube upload
 
 1. <https://console.cloud.google.com> → new project → *APIs & Services* → enable **YouTube Data API v3**.

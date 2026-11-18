@@ -157,7 +157,9 @@ def generate_motion(ctx: Context, run: Run, only: set[int] | None = None) -> dic
             existing.unlink()
         image = run.scene_file("images", i, "png")
         out = run.scene_file("clips", i, "mp4")
-        chain = [p for p in ([primary] if primary and wants_primary(ctx.app.motion_scenes, i) else []) + [fallback] if p]
+        choice = run.stage("approve").notes.get("motion", {}).get(str(i + 1))  # set on the storyboard page
+        use_primary = wants_primary(ctx.app.motion_scenes, i) if choice is None else choice == "ai"
+        chain = [p for p in ([primary] if primary and use_primary else []) + [fallback] if p]
         if not chain:
             raise RuntimeError("no motion provider configured (MOTION_PROVIDER / MOTION_FALLBACK)")
         for p in dict.fromkeys(chain):  # dedupe, keep order

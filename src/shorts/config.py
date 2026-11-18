@@ -59,6 +59,7 @@ class AppSettings(BaseModel):
     review_search_queries: int = 6  # local research: max search queries per round
     review_search_results: int = 4  # results per query
     review_fetch_pages: int = 3  # also read the full text of this many top pages (0 = snippets only)
+    storyboard_approval: bool = False  # stop before motion until approved on the storyboard page
     image_qa_enabled: bool = True
     image_qa_min_score: int = 6
     image_qa_max_retries: int = 2

@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 
 from shorts.models import Idea, Script, SceneTiming, WordTiming
 
-STAGES = ["script", "review", "voice", "align", "music", "images", "motion", "assemble", "upload"]
+STAGES = ["script", "review", "voice", "align", "music", "images", "approve", "motion", "assemble", "upload"]
 
 # files/folders each stage produces (relative to the run folder)
 OUTPUTS: dict[str, list[str]] = {
@@ -23,6 +23,7 @@ OUTPUTS: dict[str, list[str]] = {
     "align": ["words.json"],
     "music": [f"music.{ext}" for ext in ("wav", "mp3", "flac", "m4a", "ogg", "aac")],
     "images": ["images"],
+    "approve": [],
     "motion": ["clips"],
     "assemble": ["segments", "captions.ass", "final.mp4"],
     "upload": [],
@@ -30,12 +31,13 @@ OUTPUTS: dict[str, list[str]] = {
 
 # stages whose outputs become stale when a stage is re-run
 DEPENDENTS: dict[str, list[str]] = {
-    "script": ["review", "voice", "align", "music", "images", "motion", "assemble", "upload"],
-    "review": ["voice", "align", "music", "images", "motion", "assemble", "upload"],
-    "voice": ["align", "music", "assemble", "upload"],  # music length follows the narration
+    "script": ["review", "voice", "align", "music", "images", "approve", "motion", "assemble", "upload"],
+    "review": ["voice", "align", "music", "images", "approve", "motion", "assemble", "upload"],
+    "voice": ["align", "music", "approve", "assemble", "upload"],  # music length follows the narration
     "align": ["assemble", "upload"],
-    "music": ["assemble", "upload"],
-    "images": ["motion", "assemble", "upload"],
+    "music": ["approve", "assemble", "upload"],
+    "images": ["approve", "motion", "assemble", "upload"],
+    "approve": ["motion", "assemble", "upload"],
     "motion": ["assemble", "upload"],
     "assemble": ["upload"],
     "upload": [],
@@ -49,7 +51,7 @@ def slugify(text: str, max_len: int = 48) -> str:
 
 
 class StageRecord(BaseModel):
-    status: str = "pending"  # pending | running | done | failed
+    status: str = "pending"  # pending | running | done | failed | waiting (storyboard approval)
     provider: str | None = None
     started_at: float | None = None
     finished_at: float | None = None

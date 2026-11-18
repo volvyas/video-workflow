@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shorts Storyboard</title>
+<style>
+  :root {
+    --bg: #111317; --panel: #1a1d23; --panel2: #22262e; --line: #2e333d; --text: #e7e9ee; --muted: #9aa1ad;
+    --accent: #ffd23f; --ok: #3ecf8e; --warn: #ffb020; --bad: #ff5c5c; --info: #5aa9ff;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  a { color: var(--info); }
+  button, select, input, textarea { font: inherit; color: inherit; }
+  button { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--muted); }
+  button:disabled { opacity: .45; cursor: default; }
+  button.primary { background: var(--accent); color: #1b1b1b; border-color: var(--accent); font-weight: 600; }
+  button.danger { color: var(--bad); }
+  textarea, input, select { background: #0d0f12; border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; width: 100%; }
+  textarea { resize: vertical; min-height: 64px; }
+  .layout { display: grid; grid-template-columns: 290px 1fr; min-height: 100vh; }
+  aside { border-right: 1px solid var(--line); padding: 14px; overflow-y: auto; max-height: 100vh; position: sticky; top: 0; }
+  aside h1 { font-size: 16px; margin: 2px 0 12px; }
+  .run { display: flex; gap: 10px; padding: 8px; border-radius: 10px; cursor: pointer; align-items: center; }
+  .run:hover { background: var(--panel); }
+  .run.sel { background: var(--panel2); }
+  .run img, .run .ph { width: 40px; height: 70px; object-fit: cover; border-radius: 6px; background: var(--panel2); flex: none; }
+  .run .t { font-weight: 600; font-size: 13px; }
+  .run .s { color: var(--muted); font-size: 12px; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 99px; text-transform: uppercase; letter-spacing: .03em; }
+  .b-waiting { background: #3d3212; color: var(--accent); }
+  .b-approved, .b-rendering { background: #12304a; color: var(--info); }
+  .b-done { background: #123826; color: var(--ok); }
+  .b-rejected, .b-failed { background: #3a1717; color: var(--bad); }
+  .b-draft { background: var(--panel2); color: var(--muted); }
+  main { padding: 18px 22px 60px; min-width: 0; }
+  .head { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; justify-content: space-between; }
+  .head h2 { margin: 0 0 4px; font-size: 22px; }
+  .meta { color: var(--muted); }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .top { display: grid; grid-template-columns: minmax(220px, 320px) 1fr; gap: 18px; margin-top: 16px; }
+  video { width: 100%; max-height: 70vh; background: #000; border-radius: 12px; aspect-ratio: 9/16; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+  .panel h3 { margin: 0 0 10px; font-size: 14px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  .claim { padding: 6px 0; border-top: 1px solid var(--line); }
+  .claim:first-of-type { border-top: 0; }
+  .v-correct { color: var(--ok); } .v-incorrect { color: var(--bad); } .v-unverifiable { color: var(--warn); } .v-opinion { color: var(--muted); }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .row > * { flex: 1; }
+  .scenes { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; margin-top: 8px; }
+  .scene { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
+  .scene .img { position: relative; background: #000; aspect-ratio: 9/16; cursor: zoom-in; }
+  .scene .img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .scene .num { position: absolute; top: 8px; left: 8px; background: #000a; padding: 2px 8px; border-radius: 99px; font-weight: 700; }
+  .scene .busy { position: absolute; inset: 0; background: #000b; display: flex; align-items: center; justify-content: center; font-weight: 600; }
+  .scene .body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 8px; }
+  .cands { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+  .cands img { width: 42px; height: 74px; object-fit: cover; border-radius: 5px; cursor: pointer; opacity: .75; border: 1px solid var(--line); }
+  .cands img:hover { opacity: 1; border-color: var(--accent); }
+  .narr { font-size: 15px; }
+  .small { font-size: 12px; color: var(--muted); }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; padding: 5px 10px; }
+  .seg button.on { background: var(--accent); color: #1b1b1b; font-weight: 600; }
+  audio { width: 100%; height: 34px; }
+  .qa-ok { color: var(--ok); } .qa-bad { color: var(--bad); }
+  #toast { position: fixed; bottom: 16px; right: 16px; background: var(--panel2); border: 1px solid var(--line); padding: 10px 14px; border-radius: 10px; display: none; max-width: 420px; z-index: 10; }
+  #jobs { color: var(--muted); font-size: 12px; margin-top: 6px; min-height: 18px; }
+  #zoom { position: fixed; inset: 0; background: #000e; display: none; align-items: center; justify-content: center; z-index: 20; cursor: zoom-out; }
+  #zoom img { max-width: 96vw; max-height: 96vh; }
+  .empty { color: var(--muted); padding: 40px 0; }
+  @media (max-width: 860px) {
+    .layout { grid-template-columns: 1fr; }
+    aside { position: static; max-height: none; border-right: 0; border-bottom: 1px solid var(--line); }
+    #runlist { display: flex; overflow-x: auto; gap: 6px; }
+    .run { flex: none; width: 220px; }
+    .top { grid-template-columns: 1fr; }
+    main { padding: 14px 16px 60px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside>
+    <h1>Storyboard</h1>
+    <div id="runlist"></div>
+  </aside>
+  <main id="main"><div class="empty">Pick a run on the left.</div></main>
+</div>
+<div id="toast"></div>
+<div id="zoom" onclick="this.style.display='none'"><img alt=""></div>
+
+<script>
+const KEYS = ["C major","C# major","D major","Eb major","E major","F major","F# major","G major","Ab major","A major","Bb major","B major",
+  "C minor","C# minor","D minor","Eb minor","E minor","F minor","F# minor","G minor","Ab minor","A minor","Bb minor","B minor"];
+let runs = [], cur = null, data = null, jobs = [], lastJobState = {};
+
+const $ = (s, el = document) => el.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const file = (rel, v) => rel ? `/files/${encodeURIComponent(cur)}/${rel.split("/").map(encodeURIComponent).join("/")}${v ? "?v=" + v : ""}` : "";
+
+function toast(msg, ms = 3500) { const t = $("#toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", ms); }
+
+async function api(path, body) {
+  const r = await fetch("/api/" + path, body === undefined ? {} :
+    {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+
+async function loadRuns() {
+  runs = await api("runs");
+  $("#runlist").innerHTML = runs.map(r => {
+    const st = r.rendering ? "rendering" : r.state;
+    const thumb = r.thumb ? `<img src="/files/${encodeURIComponent(r.id)}/${r.thumb}" alt="" loading="lazy">` : `<div class="ph"></div>`;
+    return `<div class="run ${r.id === cur ? "sel" : ""}" onclick="openRun('${esc(r.id)}')">${thumb}
+      <div><div class="t">${esc(r.title)}</div><div class="s">${esc(r.topic)} · ${esc(r.style || "-")}</div>
+      <span class="badge b-${st}">${st}</span></div></div>`;
+  }).join("") || `<div class="empty">No runs yet.</div>`;
+}
+
+async function openRun(id) {
+  cur = id; history.replaceState(null, "", "#" + encodeURIComponent(id));
+  data = await api("run/" + encodeURIComponent(id));
+  render(); loadRuns();
+}
+
+function busyScenes() {
+  const b = {};
+  for (const j of jobs) if (j.run === cur && j.scene && (j.status === "queued" || j.status === "running")) b[j.scene] = j.status;
+  return b;
+}
+const runBusy = kind => jobs.some(j => j.run === cur && j.kind === kind && (j.status === "queued" || j.status === "running"));
+
+function render() {
+  // keep what the user is editing or playing across re-renders
+  const edits = {};
+  document.querySelectorAll("textarea, input, select").forEach(el => { if (el.id && el.dataset.orig !== undefined && el.value !== el.dataset.orig) edits[el.id] = el.value; });
+  const media = {};
+  document.querySelectorAll("audio, video").forEach(el => { media[el.getAttribute("src")] = el; });
+  const d = data, busy = busyScenes();
+  const rendering = runBusy("render");
+  const st = rendering ? "rendering" : d.state;
+  const video = d.final ? {src: file(d.final, d.final_mtime), label: "Final video"} :
+                d.preview ? {src: file(d.preview, d.preview_mtime), label: "Animatic preview (stills + pan/zoom)"} : null;
+  const rv = d.review || {};
+  const claims = (rv.claims || []).map(c => `<div class="claim"><b class="v-${esc(c.verdict)}">${esc(c.verdict)}</b> ${esc(c.claim)}
+      ${c.correction ? `<div class="small">→ ${esc(c.correction)}</div>` : ""}
+      ${c.source ? `<div class="small"><a href="${esc(c.source)}" target="_blank" rel="noopener">${esc(c.source)}</a></div>` : ""}</div>`).join("");
+  const m = d.music || {};
+  $("#main").innerHTML = `
+    <div class="head">
+      <div><h2>${esc(d.title)}</h2>
+        <div class="meta">${esc(d.topic)} · style <b>${esc(d.style || "-")}</b> · ${d.seconds ?? "?"} s · ${d.scenes.length} scenes · <span class="badge b-${st}">${st}</span></div>
+        <div id="jobs"></div></div>
+      <div class="actions">
+        <button onclick="preview()" ${runBusy("preview") ? "disabled" : ""}>${runBusy("preview") ? "Building preview…" : "Build preview"}</button>
+        <button class="primary" onclick="approve()" ${rendering || d.state === "done" ? "disabled" : ""}>${d.state === "done" ? "Rendered" : "Approve & render"}</button>
+        <button class="danger" onclick="reject()">Reject</button>
+      </div>
+    </div>
+    <div class="top">
+      <div>${video ? `<video src="${video.src}" controls playsinline preload="metadata"></video><div class="small">${video.label}</div>`
+                   : `<div class="panel small">No preview yet. "Build preview" makes an animatic from the current images, voice and music in a couple of minutes, without the GPU.</div>`}</div>
+      <div>
+        <div class="panel"><h3>Fact-check</h3>
+          ${rv.score !== undefined ? `<div>Score <b>${rv.score}</b>/10 · hook ${rv.hook_score}/10 · kept round ${rv.round} of ${rv.rounds}</div>${claims}
+            ${(rv.problems || []).length ? `<div class="small" style="margin-top:8px">Editor notes: ${rv.problems.map(esc).join(" · ")}</div>` : ""}`
+            : `<div class="small">No fact-check for this run.</div>`}
+        </div>
+        <div class="panel"><h3>Music</h3>
+          ${m.file ? `<audio src="${file(m.file, m.mtime)}" controls preload="none"></audio>` : `<div class="small">No music yet.</div>`}
+          <div style="margin-top:8px"><textarea id="mtags" rows="2" placeholder="tags: genre, mood, instruments">${esc(m.tags)}</textarea></div>
+          <div class="row" style="margin-top:8px">
+            <input id="mbpm" type="number" min="60" max="140" value="${m.bpm ?? 90}" title="bpm">
+            <select id="mkey">${KEYS.map(k => `<option ${k === m.key ? "selected" : ""}>${k}</option>`).join("")}</select>
+            <button onclick="music()" ${runBusy("music") ? "disabled" : ""}>${runBusy("music") ? "Generating…" : "Regenerate music"}</button>
+          </div>
+        </div>
+        <div class="panel"><h3>Script</h3><div class="small">${esc(d.description)}</div><div style="margin-top:6px">${esc(d.narration)}</div></div>
+      </div>
+    </div>
+    <h3 style="margin:22px 0 6px">Scenes</h3>
+    <div class="small">Re-roll makes a new image (the old one stays below as a candidate; click a candidate to use it).
+      Edit the prompt first to re-roll with your wording. "Still" uses pan/zoom instead of AI motion for that scene: no GPU, renders in seconds.</div>
+    <div class="scenes">${d.scenes.map(s => sceneCard(s, busy[s.n])).join("")}</div>`;
+  document.querySelectorAll("textarea, input, select").forEach(el => { if (el.id) { el.dataset.orig = el.value; if (edits[el.id] !== undefined) el.value = edits[el.id]; } });
+  document.querySelectorAll("audio, video").forEach(el => { const old = media[el.getAttribute("src")]; if (old && !old.paused) el.replaceWith(old); });
+  showJobs();
+}
+
+function updateBusy() {  // cheap refresh between job completions: overlays, buttons, job line
+  if (!data) return;
+  const busy = busyScenes();
+  for (const s of data.scenes) {
+    const card = document.getElementById("scene-" + s.n); if (!card) continue;
+    const img = card.querySelector(".img"); let ov = img.querySelector(".busy");
+    if (busy[s.n]) { if (!ov) { ov = document.createElement("div"); ov.className = "busy"; img.appendChild(ov); } ov.textContent = busy[s.n] === "running" ? "Generating…" : "Queued…"; }
+    else if (ov) ov.remove();
+    const b = card.querySelector(".row button"); if (b) b.disabled = !!busy[s.n];
+  }
+  showJobs();
+}
+
+function sceneCard(s, busy) {
+  const qa = s.qa && s.qa.score !== undefined ? `<span class="${s.qa.score >= 6 ? "qa-ok" : "qa-bad"}">image check ${s.qa.score}/10${(s.qa.problems || []).length ? ": " + esc(s.qa.problems.join("; ")) : ""}</span>` : "";
+  return `<div class="scene" id="scene-${s.n}">
+    <div class="img" onclick="zoom('${s.image ? file(s.image, s.image_mtime) : ""}')">
+      ${s.image ? `<img src="${file(s.image, s.image_mtime)}" alt="scene ${s.n}" loading="lazy">` : ""}
+      <span class="num">${s.n}</span>${busy ? `<div class="busy">${busy === "running" ? "Generating…" : "Queued…"}</div>` : ""}
+    </div>
+    <div class="body">
+      ${s.candidates.length ? `<div class="cands">${s.candidates.slice().reverse().map(c => `<img src="${file(c)}" title="use this one" onclick="pick(${s.n}, '${esc(c.split("/").pop())}')" loading="lazy">`).join("")}</div>` : ""}
+      <div class="narr">${esc(s.narration)}</div>
+      ${s.audio ? `<audio src="${file(s.audio)}" controls preload="none"></audio>` : ""}
+      <div class="small">${s.seconds ?? "?"} s${s.on_screen_text ? ` · overlay “${esc(s.on_screen_text)}”` : ""} ${qa}</div>
+      <textarea id="p-${s.n}" rows="3">${esc(s.image_prompt)}</textarea>
+      <div class="row" style="justify-content:space-between">
+        <button style="flex:none" onclick="reroll(${s.n})" ${busy ? "disabled" : ""}>Re-roll</button>
+        <span class="seg" style="flex:none">
+          <button class="${s.motion === "ai" ? "on" : ""}" onclick="motion(${s.n}, 'ai')" title="AI image-to-video">AI motion</button>
+          <button class="${s.motion === "still" ? "on" : ""}" onclick="motion(${s.n}, 'still')" title="pan/zoom, no GPU">Still</button>
+        </span>
+      </div>
+      <div class="small">motion: ${esc(s.motion_prompt)}</div>
+    </div></div>`;
+}
+
+function zoom(src) { if (!src) return; const z = $("#zoom"); $("img", z).src = src; z.style.display = "flex"; }
+
+async function act(fn, ok) { try { await fn(); if (ok) toast(ok); } catch (e) { toast("Error: " + e.message, 6000); } await refreshJobs(); }
+const R = () => "run/" + encodeURIComponent(cur);
+const reroll = n => act(() => api(`${R()}/scene/${n}/reroll`, {prompt: $("#p-" + n).value}), `Scene ${n}: new image queued`);
+const pick = (n, c) => act(async () => { await api(`${R()}/scene/${n}/pick`, {candidate: c}); await openRun(cur); }, `Scene ${n}: candidate selected`);
+const motion = (n, mode) => act(async () => { await api(`${R()}/scene/${n}/motion`, {mode}); await openRun(cur); });
+const music = () => act(() => api(`${R()}/music`, {tags: $("#mtags").value, bpm: +$("#mbpm").value, key: $("#mkey").value}), "Music queued");
+const preview = () => act(() => api(`${R()}/preview`, {}), "Preview queued");
+function approve() {
+  if (!confirm("Approve this storyboard and render the final video (AI motion runs on the GPU box)?")) return;
+  act(() => api(`${R()}/approve`, {render: true}), "Approved, render queued");
+}
+function reject() {
+  const note = prompt("Why reject it? (kept in the history and shown to the ideas writer)", "");
+  if (note === null) return;
+  act(async () => { await api(`${R()}/reject`, {note}); await openRun(cur); }, "Rejected");
+}
+
+function showJobs() {
+  const el = $("#jobs"); if (!el) return;
+  const mine = jobs.filter(j => j.run === cur && (j.status === "queued" || j.status === "running"));
+  const failed = jobs.filter(j => j.run === cur && j.status === "failed").slice(-1);
+  el.innerHTML = mine.map(j => `${j.kind}${j.scene ? " " + j.scene : ""}: ${j.status}`).join(" · ") +
+    (failed.length ? ` <span style="color:var(--bad)">last ${failed[0].kind} failed: ${esc(failed[0].error)}</span>` : "");
+}
+
+async function refreshJobs() {
+  try { jobs = await api("jobs"); } catch { return; }
+  let changed = false;
+  for (const j of jobs) {
+    if (lastJobState[j.id] && lastJobState[j.id] !== j.status && (j.status === "done" || j.status === "failed")) {
+      changed = changed || j.run === cur;
+      if (j.status === "failed") toast(`${j.kind} failed: ${j.error}`, 8000);
+      else if (j.run === cur) toast(`${j.kind}${j.scene ? " " + j.scene : ""} done`);
+    }
+    lastJobState[j.id] = j.status;
+  }
+  if (changed && cur) await openRun(cur); else updateBusy();
+}
+
+(async () => {
+  await loadRuns();
+  const h = decodeURIComponent(location.hash.slice(1));
+  if (h && runs.some(r => r.id === h)) openRun(h); else if (runs.length) openRun(runs[0].id);
+  setInterval(refreshJobs, 2500);
+  setInterval(loadRuns, 15000);
+})();
+</script>
+</body>
+</html>

@@ -49,11 +49,13 @@ def normalize_clip(app: AppSettings, clip: Path, target: float, out: Path) -> No
                 "-crf", "17", "-pix_fmt", "yuv420p", out])
 
 
-def assemble(app: AppSettings, run: Run, clips: list[Path]) -> Path:
+def assemble(app: AppSettings, run: Run, clips: list[Path], *, out: Path | None = None,
+             work_dir: Path | None = None, preset: str = "medium", crf: int = 18) -> Path:
+    """Build the video. `out`/`work_dir`/`preset`/`crf` let the storyboard preview render a cheap draft."""
     timings = run.timings()
     script = run.script()
-    seg_dir = run.path / "segments"
-    seg_dir.mkdir(exist_ok=True)
+    seg_dir = work_dir or run.path / "segments"
+    seg_dir.mkdir(parents=True, exist_ok=True)
     segs = []
     for clip, t in zip(clips, timings):
         seg = seg_dir / f"seg_{t.index + 1:02d}.mp4"
@@ -107,9 +109,10 @@ def assemble(app: AppSettings, run: Run, clips: list[Path]) -> Path:
         parts.append(f"[voice]{loud}[a]")
     af = ";".join(parts)
 
-    out = run.final_video
+    out = out or run.final_video
+    out.parent.mkdir(parents=True, exist_ok=True)
     ffmpeg.run([*args, "-filter_complex", f"{vf};{af}", "-map", "[v]", "-map", "[a]", "-t", f"{total:.3f}",
-                "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p",
+                "-c:v", "libx264", "-preset", preset, "-crf", str(crf), "-pix_fmt", "yuv420p",
                 "-r", str(app.video_fps), "-c:a", "aac", "-ar", "48000", "-b:a", "192k", "-movflags", "+faststart", out])
     log.info("[%s] final video: %s (%.1fs%s%s)", run.id, out, total, f", music: {music.name}" if music else "",
              f", {len(sfx)} sfx" if sfx else "")

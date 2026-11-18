@@ -82,6 +82,9 @@ def _report(status: dict[str, str], runs) -> None:
         if s == "ok":
             final = r.final_video
             typer.secho(f"✔ {r.id}" + (f"  → {final}" if final.exists() else ""), fg="green")
+        elif s.startswith("waiting"):
+            typer.secho(f"⏸ {r.id}: storyboard ready, approve it on `shorts storyboard` or `shorts approve {r.id}`",
+                        fg="yellow")
         else:
             typer.secho(f"✘ {r.id}: {s}", fg="red")
 
@@ -247,6 +250,50 @@ def upload(
 
     history.record(c, r, "upload")
     typer.secho(f"uploaded: {url}", fg="green")
+
+
+# ------------------------------------------------------------------ storyboard approval
+@app.command("storyboard")
+def storyboard_cmd(
+    host: Annotated[str, typer.Option(help="0.0.0.0 to open it from your phone on the home network")] = "127.0.0.1",
+    port: Annotated[int, typer.Option()] = 8765,
+):
+    """Web page to review script, images, voice and music, then approve (renders motion) or reject runs."""
+    from shorts.storyboard_server import serve
+
+    httpd = serve(host, port, _state.get("env_file"))
+    shown = "localhost" if host in ("127.0.0.1", "0.0.0.0") else host
+    typer.secho(f"storyboard: http://{shown}:{port}/   (Ctrl+C to stop)", fg="green")
+    if host == "0.0.0.0":
+        typer.secho("  reachable from your network, without a password: use it on a trusted home network only",
+                    fg="yellow")
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        pass
+
+
+@app.command("approve")
+def approve_cmd(runs: list[Path], render: Annotated[bool, typer.Option(help="Continue with motion + assembly")] = True):
+    """Approve the storyboard of run(s) from the terminal; renders them unless --no-render."""
+    from shorts import pipeline, storyboard
+
+    rs = _runs(runs)
+    for r in rs:
+        storyboard.approve(r, by="human (cli)")
+        typer.echo(f"approved {r.id}")
+    if render:
+        _report(pipeline.execute(ctx(), rs), rs)
+
+
+@app.command("reject")
+def reject_cmd(runs: list[Path], note: Annotated[str, typer.Option(help="Why (goes into the history)")] = ""):
+    """Reject run(s) at the storyboard step (history status: rejected)."""
+    from shorts import storyboard
+
+    for r in _runs(runs):
+        storyboard.reject(ctx(), r, note)
+        typer.echo(f"rejected {r.id}")
 
 
 # ------------------------------------------------------------------ styles
