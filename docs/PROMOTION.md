@@ -78,7 +78,8 @@ line flows into the first and invites a replay).
 ## Pipeline work this implies
 | Idea | Status |
 |---|---|
-| Real-footage mode: user clips replace generated images and motion | ⬜ planned |
+| Real-footage mode: user clips replace generated images and motion | ⏸ postponed: no new footage for now |
+| Funny AI edits of existing cat clips (video-to-video, e.g. Wan VACE) | ⏸ later experiment |
 | `VIDEO_TARGET_SECONDS=30` test batch | ⬜ next batch |
 | YouTube upload with scheduling (`publishAt`), private test first | ⬜ |
 | Analytics loop: pull retention, mark `popular` automatically | ⬜ |
