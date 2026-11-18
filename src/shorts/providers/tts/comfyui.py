@@ -2,8 +2,9 @@
 custom nodes).
 
 Placeholders available in the workflow:
-  {{text}} {{ref_audio}} {{ref_text}} {{seed}} {{speed}} {{filename_prefix}}
-The reference clip is uploaded to ComfyUI's input folder once per run of the pipeline.
+  {{text}} {{ref_audio}} {{ref_text}} {{seed}} {{speed}} {{exaggeration}} {{cfg_weight}} {{filename_prefix}}
+The reference clip (only needed when the workflow uses {{ref_audio}}, i.e. clones a voice) is uploaded to ComfyUI's
+input folder once per run of the pipeline.
 """
 
 from __future__ import annotations
@@ -23,6 +24,8 @@ class ComfyTTSSettings(ProviderSettings):
     ref_text: str = ""  # exact transcript of ref_audio
     speed: float = 1.0
     seed: int = 1  # fixed seed keeps intonation stable between regenerations
+    exaggeration: float = 0.5  # Chatterbox: emotion intensity (0.25 flat - 1.0+ dramatic)
+    cfg_weight: float = 0.5  # Chatterbox: lower = slower, more deliberate delivery
 
 
 class ComfyTTS(TTSProvider):
@@ -33,9 +36,11 @@ class ComfyTTS(TTSProvider):
 
     def __init__(self, settings, app):
         super().__init__(settings, app)
-        if not self.settings.ref_audio.exists():
-            raise ProviderError(f"reference audio not found: {self.settings.ref_audio} (set TTS_COMFY_REF_AUDIO)")
         self._wf = template.load(self.settings.workflow)
+        self._needs_ref = "ref_audio" in template.placeholders(self._wf)
+        if self._needs_ref and not self.settings.ref_audio.exists():
+            raise ProviderError(f"reference audio not found: {self.settings.ref_audio} (set TTS_COMFY_REF_AUDIO; "
+                                f"{self.settings.workflow.name} clones a voice)")
         self._client = ComfyClient(app.comfy_url, app.comfy_timeout, app.comfy_poll_interval)
         self._ref_name: str | None = None
 
@@ -56,8 +61,9 @@ class ComfyTTS(TTSProvider):
 
     def synthesize(self, text: str, out_path: Path) -> float:
         wf = template.fill(self._wf, {
-            "text": text, "ref_audio": self._ref(), "ref_text": self.settings.ref_text,
-            "seed": self.settings.seed, "speed": self.settings.speed, "filename_prefix": "shorts/voice",
+            "text": text, "ref_audio": self._ref() if self._needs_ref else "", "ref_text": self.settings.ref_text,
+            "seed": self.settings.seed, "speed": self.settings.speed, "exaggeration": self.settings.exaggeration,
+            "cfg_weight": self.settings.cfg_weight, "filename_prefix": "shorts/voice",
         })
         got = self._client.run(wf, out_path, kind="audio")
         if got != out_path:  # e.g. SaveAudio writes FLAC: convert to the WAV the pipeline expects

@@ -208,6 +208,15 @@ architecture, usually `F5TTS_v1_Base` or `F5TTS_Base`). Set `CONTENT_LANGUAGE` a
 
 Tuning: `TTS_F5_SPEED` (1.0–1.15 suits Shorts), `TTS_F5_NFE_STEP` (32 = quality, 16 = fast), and `TTS_F5_SEED` (fixes intonation between re-runs).
 
+### 4.0c Chatterbox inside ComfyUI (`TTS_PROVIDER=comfyui`), MIT license, verified 2026-11-18
+Custom node **ComfyUI-Chatterbox** (by wildminder; only adds `s3tokenizer`, doesn't touch PyTorch). Install it from
+ComfyUI Manager, restart ComfyUI; the model downloads on the first run (`models/tts/chatterbox/`).
+- Built-in voice: `TTS_COMFY_WORKFLOW=workflows/tts_chatterbox.json` (no reference clip needed).
+- Your voice: `TTS_COMFY_WORKFLOW=workflows/tts_chatterbox_clone.json` + `TTS_COMFY_REF_AUDIO=assets/voices/narrator.wav`
+  (20–30 s of clean speech, any phone mic in a quiet, soft room).
+- `TTS_COMFY_EXAGGERATION` (0.5 calm, ~0.8 lively) and `TTS_COMFY_CFG_WEIGHT` (0.5; lower = faster, punchier here).
+- Measured speaking rate: about 2.9 words/s (calm) and 3.4 (lively), vs. Kokoro 2.2.
+
 ### 4.1 Alternative: F5-TTS inside ComfyUI (`TTS_PROVIDER=comfyui`)
 
 Use this when the orchestrator runs on a weak machine (e.g. a laptop) and ComfyUI runs on the GPU box. The voice model then runs there.
