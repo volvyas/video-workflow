@@ -17,7 +17,7 @@ Suggestions made during design, with their status. ✅ done · 🔄 in progress 
 | 3d | **Consistent visual style** per video (style field in the script; optionally a style LoRA or reference image in the workflow) | Recognizable channel look | ✅ `visual_style` field; LoRA/IP-Adapter in workflow ⬜ |
 | 4 | **Analytics feedback loop**: YouTube Analytics API → retention/views per video → feed the best and worst performers into the ideas prompt | Biggest long-term lever; avoids "content farm" drift | 🔄 script history with `popular` status feeds the ideas prompt (marked by hand); automatic marking from Analytics ⬜ |
 | 5a | **Unattended runs**: nightly cron/systemd timer renders the next N ideas | Hands-off production | ⬜ |
-| 5b | **Auto-scheduled uploads** 1–3/day via `publishAt` | Steady cadence | ⬜ (uploader supports `--publish-at`; needs a scheduler) |
+| 5b | **Auto-scheduled uploads** 1–3/day via `publishAt` | Steady cadence | ⏸ manual uploads for now; needs Google's API audit (SETUP §9.2), then a scheduler |
 | 5c | **Notification** when a batch is ready for review | | ⬜ |
 | 5d | **Local review page**: watch, approve, re-roll a scene | Faster than the command line | ⬜ |
 | 6a | **Multi-language versions**: same visuals, translated script and voice, separate channel or multi-audio track | Cheap extra reach | ⬜ |
@@ -52,6 +52,10 @@ Suggestions made during design, with their status. ✅ done · 🔄 in progress 
 |---|---|
 | 2026-11-17 | **Default to local LLMs.** The Claude API bills separately from the Claude subscription. Target: Qwen3.8-Flash-Next (125B MoE, ~6B active) on the GPU box with expert offload; Claude stays as an optional provider |
 | 2026-11-17 | Fact-check web search via DuckDuckGo (`ddgs`) by default; SearXNG if it gets rate-limited |
+| 2026-11-18 | Search: `multi` (Wikipedia API + ddgs, content farms blocked, cached) instead of SearXNG; nothing extra installed on the AI box |
+| 2026-11-18 | Default LLM: **Qwen3.8-27B** (UD-IQ4_XS + mmproj), 5× faster and more accurate than Flash-Next at 1.6 bit |
+| 2026-11-18 | **Uploads are manual** in YouTube Studio for now (SETUP §9.1); API uploads (§9.2) need Google's audit first |
+| 2026-11-18 | False-premise ideas are scripted from the corrected premise (`IDEAS_FALSE_PREMISE=correct`) |
 
 ## Earlier design suggestions
 

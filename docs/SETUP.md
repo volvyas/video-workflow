@@ -457,17 +457,47 @@ Terminal equivalents: `shorts approve RUN`, `shorts reject RUN --note "..."`. An
 
 ## 9. YouTube upload
 
+**Current practice (2026-11-18): manual upload in YouTube Studio.** It takes about a minute per video, and API uploads
+need a Google audit first (see 9.2).
+
+### 9.1 Manual upload (current)
+For each approved, finished run:
+1. **Get the video:** storyboard page → *Download* (or *Show in folder*): `runs/<run>/final.mp4`.
+2. **Get the text:** `runs/<run>/script.json` has `title`, `description` and `tags` (written by the script LLM).
+   Quick view: `python3 -c "import json;s=json.load(open('runs/<run>/script.json'));print(s['title']);print();print(s['description']);print();print(', '.join(s['tags']))"`
+3. **YouTube Studio → Create → Upload videos**, pick `final.mp4`:
+   - **Title** and **Description**: paste. Keep the hashtags at the end of the description (e.g. `#shorts`).
+   - **Audience: "No, it's not made for kids".** That matters for comments and ads.
+   - *Show more* → **Altered content: "Yes"** when the visuals look realistic. YouTube's synthetic-content
+     disclosure; comic/cartoon styles are usually clearly not real, but saying yes is the safe default.
+   - *Show more* → **Tags**: paste the tag list. **Language**: the video's language. **Category**: e.g. Education.
+   - Visibility: **Public**, or **Schedule** (1–2 per day at a steady time, see [PROMOTION.md](PROMOTION.md)).
+4. **Pin a comment** with the source of the main fact (`runs/<run>/review.json` → the claims' `source` URLs).
+5. **Record it:** `shorts history mark <run> -s uploaded --note "<youtube url>"`. Later, mark winners with
+   `-s popular` (the idea writer learns from them).
+
+A YouTube Short must be vertical and at most 3 minutes; all pipeline videos are 1080×1920 and well under that.
+
+### 9.2 Automated upload via the YouTube Data API (later)
+The code exists (`UPLOADER=youtube`, `shorts upload <run> [--publish-at ...]`): it sets title, description, tags,
+category, language, made-for-kids, `containsSyntheticMedia` and scheduled publishing. Not yet tested against a real
+channel.
+
+Setup:
 1. <https://console.cloud.google.com> → new project → *APIs & Services* → enable **YouTube Data API v3**.
 2. *OAuth consent screen*: External, add your Google account as a **test user**.
 3. *Credentials → Create credentials → OAuth client ID → Desktop app*. Download the JSON to `secrets/client_secret.json`.
 4. `.env`: `UPLOADER=youtube`.
 5. `uv run shorts upload runs/<run>`. The first time, a browser opens for consent and the token is cached in `secrets/`.
+   With two channels on one Google account, pick the **right channel** on the consent screen.
 
 Caveats:
-- **Unverified API projects can only upload as _private_.** Publish from YouTube Studio, or apply for the API
-  compliance audit to lift this.
-- The default quota (10,000 units/day) allows ~6 uploads per day.
-- Uploads are flagged `containsSyntheticMedia=true` (YouTube's altered/synthetic content disclosure).
+- **Videos uploaded by an unverified API project are locked to _private_.** As far as we know they can't be made
+  public afterwards (verify in Google's current YouTube API docs). Lifting it needs Google's **API compliance
+  audit** (free; a form describing the app). Apply before switching to automated uploads.
+- The default quota (10,000 units/day) allows about 6 uploads per day.
+- First automated upload: upload one video **privately** to check the technical side (right channel, recognized
+  as a Short, metadata, synthetic-content flag, scheduling, quality after YouTube's re-encode), then delete it.
 
 ---
 

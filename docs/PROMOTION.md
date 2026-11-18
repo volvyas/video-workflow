@@ -82,7 +82,7 @@ line flows into the first and invites a replay).
 | Funny AI edits of existing cat clips (video-to-video, e.g. Wan VACE) | ⏸ later experiment |
 | Skit format: short AI story clips with a recurring character, clean jokes, no narration | ⬜ quick local test first |
 | `VIDEO_TARGET_SECONDS=30` test batch | ⬜ next batch |
-| YouTube upload with scheduling (`publishAt`), private test first | ⬜ |
+| YouTube upload | ✅ manual in Studio for now ([SETUP §9.1](SETUP.md)); API + scheduling later after Google's audit (§9.2) |
 | Analytics loop: pull retention, mark `popular` automatically | ⬜ |
 | Own voice (cloning via Chatterbox in ComfyUI; F5 weights are non-commercial) | ⬜ needs a voice recording |
 | Cross-posting uploaders (TikTok / Reels): their APIs need an app review | ⬜ later |
