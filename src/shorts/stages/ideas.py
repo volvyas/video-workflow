@@ -7,7 +7,7 @@ from pathlib import Path
 
 from shorts.config import AppSettings
 from shorts.context import Context
-from shorts.models import IdeaBatch, IdeaPool, StoredIdea
+from shorts.models import Idea, IdeaBatch, IdeaPool, PremiseCheck, StoredIdea
 from shorts.prompts import render
 from shorts.run import slugify
 
@@ -61,12 +61,47 @@ def generate_ideas(ctx: Context, topic: str, count: int) -> list[StoredIdea]:
         pool.ideas.append(stored)
         new.append(stored)
     save_pool(app, pool)
+    if app.ideas_fact_check:
+        for stored in new:
+            stored.premise = check_premise(ctx, topic, stored)
+            save_pool(app, pool)  # after each check: a long batch keeps its progress
     return new
+
+
+def check_premise(ctx: Context, topic: str, idea: Idea) -> PremiseCheck:
+    """Web research + LLM verdict on the idea's central claim."""
+    import logging
+
+    from shorts.stages.research import research
+
+    app = ctx.app
+    notes = research(ctx, topic, f"{idea.title}. {idea.hook} {idea.angle}") if app.review_web_search else ""
+    check = ctx.llm("review").generate_json(
+        system=render("premise_system", app.prompts_dir, channel_brief=app.channel_brief),
+        prompt=render("premise_user", app.prompts_dir, topic=topic, title=idea.title, hook=idea.hook,
+                      angle=idea.angle, research=notes or "(none)"),
+        schema=PremiseCheck)
+    logging.getLogger("shorts.stage.ideas").info("premise of '%s': %s (%s)", idea.title, check.verdict,
+                                                 check.explanation[:120])
+    return check
+
+
+def premise_note(check: PremiseCheck | None) -> str:
+    """Line for the script prompt."""
+    if check is None or check.verdict == "true":
+        return ""
+    if check.verdict == "misleading" and check.corrected_premise:
+        return (f"Premise check: the idea as stated is misleading ({check.explanation}). Build the script on this "
+                f"accurate premise instead: {check.corrected_premise}")
+    if check.verdict == "unverifiable":
+        return f"Premise check: unverifiable ({check.explanation}). Only state what is well established."
+    return f"Premise check: {check.verdict}. {check.explanation}"
 
 
 def take_unused(app: AppSettings, topic: str, n: int) -> list[StoredIdea]:
     """Unused ideas, skipping those that resemble earlier videos (use them explicitly with --idea)."""
-    return [i for i in load_pool(app, topic).ideas if not i.used_by and not i.similar_to][:n]
+    return [i for i in load_pool(app, topic).ideas if not i.used_by and not i.similar_to
+            and not (i.premise and i.premise.verdict == "false")][:n]
 
 
 def find_idea(app: AppSettings, topic: str, idea_id: str) -> StoredIdea:

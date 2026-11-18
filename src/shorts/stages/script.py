@@ -58,10 +58,42 @@ def scene_plan(seconds: int) -> tuple[int, int, int]:
     return scenes, max(6, round(per * 0.8)), round(per * 1.25)
 
 
+class FalsePremise(RuntimeError):
+    pass
+
+
+def idea_premise(ctx: Context, run: Run):
+    """The idea's premise check: from premise.json, the idea pool, or checked now (IDEAS_FACT_CHECK)."""
+    from shorts.models import PremiseCheck
+    from shorts.stages import ideas
+
+    p = run.path / "premise.json"
+    if p.exists():
+        return PremiseCheck.model_validate_json(p.read_text())
+    if not ctx.app.ideas_fact_check:
+        return None
+    check = None
+    if run.manifest.idea_id:
+        try:
+            check = ideas.find_idea(ctx.app, run.manifest.topic, run.manifest.idea_id).premise
+        except KeyError:
+            pass
+    if check is None:
+        check = ideas.check_premise(ctx, run.manifest.topic, run.idea())
+    run.write_json("premise.json", check)
+    return check
+
+
 def write_script(ctx: Context, run: Run) -> Script:
+    from shorts.stages.ideas import premise_note
+
     idea = run.idea()
+    check = idea_premise(ctx, run)
+    if check is not None and check.verdict == "false":
+        raise FalsePremise(f"the idea's premise is false: {check.premise} ({check.explanation}). Pick another idea, "
+                           f"or edit idea.json and delete premise.json, then resume")
     prompt = render("script_user", ctx.app.prompts_dir, topic=run.manifest.topic, title=idea.title,
-                    hook=idea.hook, angle=idea.angle)
+                    hook=idea.hook, angle=idea.angle, premise=premise_note(check))
     script = generate_script(ctx, run, prompt)
     run.write_json("script.json", script)
     return script

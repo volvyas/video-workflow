@@ -24,7 +24,7 @@ def pick_sfx(app: AppSettings, seed: int, count: int) -> list[Path]:
     d = app.sfx_dir
     if count <= 0 or not d or not Path(d).is_dir():
         return []
-    files = sorted(p for p in Path(d).iterdir() if p.suffix.lower() in _MUSIC_EXT)
+    files = sorted(p for p in Path(d).iterdir() if p.suffix.lower() in _MUSIC_EXT)  # README.md etc. ignored
     if not files:
         return []
     rnd = random.Random(seed + 7)

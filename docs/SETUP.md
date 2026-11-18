@@ -358,6 +358,9 @@ uv run shorts comfy test-motion comfy_test.png --prompt "waves crash, light beam
 - **Sound effects:** put a few short whoosh/swish/hit sounds (0.2–0.8 s, royalty-free, e.g. from freesound.org with CC0
   or Pixabay) in `assets/sfx/`. One plays on every scene cut (`SFX_VOLUME`, `SFX_LEAD`). Empty folder = none.
 
+**Sound effects:** see [`assets/sfx/README.md`](../assets/sfx/README.md) for the list of effects to add
+(descriptions, lengths, sources and generation prompts).
+
 ## 7a. Generated music (ACE-Step 1.5)
 
 `MUSIC_PROVIDER=comfyui` generates an instrumental track per video on the ComfyUI machine, exactly as long as the
@@ -403,6 +406,12 @@ with no incorrect claims.
   `shorts accept <run>` and `shorts resume <run>`. Or set `REVIEW_ON_LOW_SCORE=continue`.
 - With `SEARCH_PROVIDER=none` the reviewer checks facts from its own knowledge only (the log warns).
 
+**Idea premise check** (`IDEAS_FACT_CHECK=true`): each new idea's central claim is checked with web search
+before any script is written. `false` → never picked automatically (`list-ideas` shows it in red) and a run
+started from it stops before the script (`auto_rejected`); `misleading` → the script writer gets the corrected
+premise; `unverifiable` → the writer is told to state only what is well established. Result per run:
+`premise.json`.
+
 **Image QA** (inside `images`): a vision model checks each keyframe for text/watermarks, artifacts and prompt match.
 Bad ones are re-rolled up to `IMAGE_QA_MAX_RETRIES` times, and the best candidate is kept (others in `images/candidates/`).
 - Runs in batch rounds: generate all images → free ComfyUI → check all → free the LLM → re-roll the rejected ones.
@@ -433,8 +442,10 @@ uv run shorts storyboard                    # http://localhost:8765/
 uv run shorts storyboard --host 0.0.0.0     # also from your phone on the home network (no password!)
 ```
 Per run: title, script, fact-check claims with sources, music player (edit tags/bpm/key → regenerate), and one
-card per scene: image with earlier candidates (click to use one), the scene's voice, editable image prompt +
-**Re-roll**, and **AI motion / Still** (still = pan/zoom, no GPU). **Build preview** renders an animatic (stills +
+card per scene: image with earlier candidates (click to use one; `IMAGE_CANDIDATES=2` makes extra ones up
+front), the scene's voice, editable **narration** (Save & re-voice re-records only that scene and re-times
+captions and music), editable image prompt + **Re-roll**, and **AI motion / Still** (still = pan/zoom, no GPU).
+**Re-check facts** runs the fact-check again on the edited script. **Build preview** renders an animatic (stills +
 pan/zoom + voice + music + captions) on the laptop CPU. **Approve & render** runs motion + assembly (one render
 at a time, log in `runs/<run>/render.log`); **Reject** marks it rejected in the history with your note.
 Terminal equivalents: `shorts approve RUN`, `shorts reject RUN --note "..."`. Any edit after approval resets it.

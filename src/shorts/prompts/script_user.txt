@@ -2,5 +2,6 @@ Topic: $topic
 Title: $title
 Hook: $hook
 Angle: $angle
+$premise
 
 Write the script.

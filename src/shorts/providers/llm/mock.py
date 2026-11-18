@@ -18,6 +18,7 @@ class MockSettings(ProviderSettings):
     image_score: int = 8  # score returned by image checks (set low to exercise re-rolls)
     web_search: bool = True
     similarity_score: int = 2  # 0-10 returned for every candidate by the llm similarity check
+    premise_verdict: str = "true"  # verdict of idea premise checks
 
 
 class MockLLM(LLMProvider):
@@ -35,6 +36,10 @@ class MockLLM(LLMProvider):
         return "Mock research: all claims look correct. Source: https://example.com"
 
     def generate_json(self, *, system: str, prompt: str, schema: type[T], images: list[Path] | None = None) -> T:
+        if schema.__name__ == "PremiseCheck":
+            v = self.settings.premise_verdict
+            return schema(premise="mock premise", verdict=v, explanation=f"mock says {v}",
+                          corrected_premise="" if v == "true" else "a corrected mock premise", source="")
         if schema.__name__ == "SimilarityJudgement":
             n = len(re.findall(r"^\d+\. ", prompt.split("EARLIER:")[-1], re.M))
             return schema.model_validate({"items": [{"index": i + 1, "score": self.settings.similarity_score,

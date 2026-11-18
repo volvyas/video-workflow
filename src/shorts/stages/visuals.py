@@ -46,6 +46,7 @@ class _Item:
         self.best: tuple[int, Path] | None = None
         self.passed = False
         self.history: list[dict] = []
+        self.checked = 0  # history entries already judged by QA
 
     def candidate(self, k: int) -> Path:
         return self.out if k == 0 else self.run.sub("images", "candidates", f"scene_{self.index + 1:02d}_try{k + 1}.png")
@@ -79,36 +80,45 @@ def generate_images_batch(ctx: Context, runs: list[Run], only: set[int] | None =
         if not todo:
             break
         provider = ctx.image()
+        per_item = max(1, app.image_candidates) if k == 0 else 1  # extra candidates only in the first round
         for it in todo:
-            if it.run.id in errors:
-                continue
-            seed = it.run.manifest.seed + it.index + 1000 * k
-            log.info("[%s] image %d%s", it.run.id, it.index + 1, f" (re-roll {k})" if k else "")
-            try:
-                provider.generate(prompt=it.prompt, negative=app.negative_prompt, width=app.image_width,
-                                  height=app.image_height, seed=seed, out_path=it.candidate(k))
-            except Exception as e:  # noqa: BLE001 - isolate failures per run
-                errors[it.run.id] = f"image scene {it.index + 1}: {e}"
-                continue
-            it.history.append({"try": k + 1, "seed": seed})
-            if not qa:
-                it.best, it.passed = (0, it.candidate(k)), True
+            for _ in range(per_item):
+                if it.run.id in errors:
+                    break
+                t = len(it.history)  # try number (0-based); try 0 is the scene image itself
+                seed = it.run.manifest.seed + it.index + 1000 * t
+                log.info("[%s] image %d%s", it.run.id, it.index + 1,
+                         f" (re-roll {k})" if k else (f" (candidate {t + 1}/{per_item})" if per_item > 1 else ""))
+                try:
+                    provider.generate(prompt=it.prompt, negative=app.negative_prompt, width=app.image_width,
+                                      height=app.image_height, seed=seed, out_path=it.candidate(t))
+                except Exception as e:  # noqa: BLE001 - isolate failures per run
+                    errors[it.run.id] = f"image scene {it.index + 1}: {e}"
+                    break
+                it.history.append({"try": t + 1, "seed": seed})
+                if not qa and it.best is None:
+                    it.best, it.passed = (0, it.candidate(t)), True
         if not qa:
             break
         if not llm_remote:
             ctx.unload("image")  # free ComfyUI VRAM/RAM before the local LLM loads
         for it in todo:
-            if it.run.id in errors or len(it.history) <= k:
+            if it.run.id in errors:
                 continue
-            verdict = _check(ctx, it.candidate(k), it.prompt, it.scene)
-            it.history[-1].update(verdict.model_dump())
-            if it.best is None or verdict.score > it.best[0]:
-                it.best = (verdict.score, it.candidate(k))
-            if verdict.acceptable(app.image_qa_min_score):
-                it.best, it.passed = (verdict.score, it.candidate(k)), True
-            else:
-                log.info("[%s] image %d rejected (score %d): %s", it.run.id, it.index + 1, verdict.score,
-                         "; ".join(verdict.problems) or "flags set")
+            for h in it.history[it.checked:]:
+                path = it.candidate(h["try"] - 1)
+                verdict = _check(ctx, path, it.prompt, it.scene)
+                h.update(verdict.model_dump())
+                ok = verdict.acceptable(app.image_qa_min_score)
+                # the best passing candidate wins; until one passes, keep the best-scoring one as a fallback
+                if (ok and (not it.passed or verdict.score > it.best[0])) or \
+                        (not it.passed and (it.best is None or verdict.score > it.best[0])):
+                    it.best = (verdict.score, path)
+                    it.passed = it.passed or ok
+                if not ok:
+                    log.info("[%s] image %d try %d rejected (score %d): %s", it.run.id, it.index + 1, h["try"],
+                             verdict.score, "; ".join(verdict.problems) or "flags set")
+            it.checked = len(it.history)
         todo = [it for it in todo if not it.passed]
         if todo and k + 1 < rounds and not llm_remote:
             ctx.unload("llm")  # free the LLM before ComfyUI loads again

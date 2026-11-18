@@ -13,6 +13,7 @@ assets/music/*
 assets/sfx/*
 assets/fonts/*
 !assets/**/.gitkeep
+!assets/sfx/README.md
 comfy_test.png
 motion_test.mp4
 

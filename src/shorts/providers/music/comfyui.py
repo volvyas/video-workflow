@@ -13,6 +13,17 @@ from shorts.comfy.client import ComfyClient
 from shorts.providers.base import MusicProvider, ProviderSettings
 
 
+def merge_tags(*groups: str) -> str:
+    """Comma-separated tags from several strings, each tag once (case-insensitive), in order."""
+    seen, out = set(), []
+    for g in groups:
+        for t in (x.strip() for x in g.split(",")):
+            if t and t.lower() not in seen:
+                seen.add(t.lower())
+                out.append(t)
+    return ", ".join(out)
+
+
 class ComfyMusicSettings(ProviderSettings):
     workflow: Path = Path("workflows/music_acestep15_turbo.json")
     lyrics: str = "[Instrumental]"  # background score: no vocals over the narration
@@ -37,7 +48,7 @@ class ComfyMusic(MusicProvider):
 
     def generate(self, *, tags: str, bpm: int, key: str, seconds: float, seed: int, out_path: Path) -> Path | None:
         s = self.settings
-        full = ", ".join(t for t in (tags.strip().rstrip(",") or s.default_tags, s.tags_suffix) if t)
+        full = merge_tags(tags.strip() or s.default_tags, s.tags_suffix)
         wf = template.fill(self._wf, {
             "tags": full, "lyrics": s.lyrics, "bpm": max(60, min(140, int(bpm))), "key": key,
             "seconds": round(seconds + s.extra_seconds, 2), "seed": seed, "filename_prefix": "shorts/music",

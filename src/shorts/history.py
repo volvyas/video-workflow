@@ -222,8 +222,9 @@ def record_failure(ctx: "Context", run: "Run", stage: str, error: BaseException)
     if not ctx.app.history_enabled:
         return
     from shorts.stages.review import NeedsHumanReview
+    from shorts.stages.script import FalsePremise
 
-    if not isinstance(error, (NeedsHumanReview, SimilarContent)):
+    if not isinstance(error, (NeedsHumanReview, SimilarContent, FalsePremise)):
         return
     try:
         if not (run.path / "idea.json").exists():

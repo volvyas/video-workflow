@@ -59,7 +59,7 @@
   .cands { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
   .cands img { width: 64px; height: 112px; object-fit: cover; border-radius: 5px; cursor: pointer; opacity: .75; border: 1px solid var(--line); }
   .cands img:hover { opacity: 1; border-color: var(--accent); }
-  .narr { font-size: 20px; line-height: 1.4; }
+  .narr { font-size: 20px; line-height: 1.4; min-height: 90px; }
   .small { font-size: 15px; color: var(--muted); }
   .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
   .seg button { border: 0; border-radius: 0; padding: 8px 14px; }
@@ -168,7 +168,9 @@ function render() {
                    : `<div class="panel small">No preview yet. "Build preview" makes an animatic from the current images, voice and music in a couple of minutes, without the GPU.</div>`}</div>
       <div>
         <div class="panel"><h3>Fact-check</h3>
-          ${rv.score !== undefined ? `<div>Score <b>${rv.score}</b>/10 · hook ${rv.hook_score}/10 · kept round ${rv.round} of ${rv.rounds}</div>${claims}
+          ${rv.stale ? `<div style="color:var(--warn);margin-bottom:8px">Narration edited (scene ${rv.edited_scenes.join(", ")}) since this check.</div>` : ""}
+          <button onclick="recheck()" ${runBusy("recheck") ? "disabled" : ""} style="margin-bottom:10px">${runBusy("recheck") ? "Checking… (web search + LLM)" : "Re-check facts"}</button>
+          ${rv.score !== undefined ? `<div>Score <b>${rv.score}</b>/10 · hook ${rv.hook_score}/10 · round ${rv.round} of ${rv.rounds}</div>${claims}
             ${(rv.problems || []).length ? `<div class="small" style="margin-top:8px">Editor notes: ${rv.problems.map(esc).join(" · ")}</div>` : ""}`
             : `<div class="small">No fact-check for this run.</div>`}
         </div>
@@ -201,7 +203,7 @@ function updateBusy() {  // cheap refresh between job completions: overlays, but
     const img = card.querySelector(".img"); let ov = img.querySelector(".busy");
     if (busy[s.n]) { if (!ov) { ov = document.createElement("div"); ov.className = "busy"; img.appendChild(ov); } ov.textContent = busy[s.n] === "running" ? "Generating…" : "Queued…"; }
     else if (ov) ov.remove();
-    const b = card.querySelector(".row button"); if (b) b.disabled = !!busy[s.n];
+    card.querySelectorAll("button").forEach(b => { if (!b.closest(".seg")) b.disabled = !!busy[s.n]; });
   }
   showJobs();
 }
@@ -215,7 +217,8 @@ function sceneCard(s, busy) {
     </div>
     <div class="body">
       ${s.candidates.length ? `<div class="cands">${s.candidates.slice().reverse().map(c => `<img src="${file(c)}" title="use this one" onclick="pick(${s.n}, '${esc(c.split("/").pop())}')" loading="lazy">`).join("")}</div>` : ""}
-      <div class="narr">${esc(s.narration)}</div>
+      <textarea class="narr" id="n-${s.n}" rows="3" title="what the voice says in this scene">${esc(s.narration)}</textarea>
+      <button onclick="narration(${s.n})" ${busy ? "disabled" : ""} title="re-record this scene's voice, re-time captions and music">Save narration &amp; re-voice</button>
       ${s.audio ? `<audio src="${file(s.audio)}" controls preload="none"></audio>` : ""}
       <div class="small">${s.seconds ?? "?"} s${s.on_screen_text ? ` · overlay “${esc(s.on_screen_text)}”` : ""} ${qa}</div>
       <textarea id="p-${s.n}" rows="3">${esc(s.image_prompt)}</textarea>
@@ -235,6 +238,8 @@ function zoom(src) { if (!src) return; const z = $("#zoom"); $("img", z).src = s
 async function act(fn, ok) { try { await fn(); if (ok) toast(ok); } catch (e) { toast("Error: " + e.message, 6000); } await refreshJobs(); }
 const R = () => "run/" + encodeURIComponent(cur);
 const reroll = n => act(() => api(`${R()}/scene/${n}/reroll`, {prompt: $("#p-" + n).value}), `Scene ${n}: new image queued`);
+const narration = n => act(() => api(`${R()}/scene/${n}/narration`, {text: $("#n-" + n).value}), `Scene ${n}: re-recording the voice`);
+const recheck = () => act(() => api(`${R()}/recheck`, {}), "Fact-check queued");
 const pick = (n, c) => act(async () => { await api(`${R()}/scene/${n}/pick`, {candidate: c}); await openRun(cur); }, `Scene ${n}: candidate selected`);
 const motion = (n, mode) => act(async () => { await api(`${R()}/scene/${n}/motion`, {mode}); await openRun(cur); });
 const music = () => act(() => api(`${R()}/music`, {tags: $("#mtags").value, bpm: +$("#mbpm").value, key: $("#mkey").value}), "Music queued");

@@ -102,11 +102,23 @@ class ImageVerdict(BaseModel):
             and not self.fused_objects and self.score >= min_score
 
 
+class PremiseCheck(BaseModel):
+    premise: str = Field(description="The central factual claim the idea depends on, in one sentence")
+    verdict: Literal["true", "misleading", "false", "unverifiable"] = Field(
+        description="true: accurate; misleading: partly true or exaggerated, fixable; false: a myth or wrong; "
+                    "unverifiable: no reliable evidence either way")
+    explanation: str = Field(description="What the evidence says, 1-3 sentences")
+    corrected_premise: str = Field(description="An accurate version of the premise that keeps the surprise, "
+                                   "or empty string if the premise is true")
+    source: str = Field(description="URL of the best supporting source, or empty string")
+
+
 # ---------------------------------------------------------------- internal
 class StoredIdea(Idea):
     id: str
     topic: str
     used_by: str | None = None  # run id that consumed this idea
+    premise: PremiseCheck | None = None  # fact-check of the idea's central claim (IDEAS_FACT_CHECK)
     similar_to: list[str] = Field(default_factory=list)  # earlier history entries it resembles (not auto-picked)
 
 

@@ -98,6 +98,10 @@ def ideas_cmd(topic: str, count: Annotated[int, typer.Option("--count", "-n")] =
     new = ideas.generate_ideas(ctx(), topic, count)
     for i in new:
         typer.echo(f"{i.id}  {i.title}\n        hook: {i.hook}")
+        if i.premise:
+            typer.secho(f"        premise: {i.premise.verdict}" + (f" → {i.premise.corrected_premise}"
+                        if i.premise.corrected_premise else ""),
+                        fg={"true": "green", "false": "red"}.get(i.premise.verdict, "yellow"))
         for s in i.similar_to:
             typer.secho(f"        ⚠ similar to {s} (not picked automatically; use --idea {i.id} to make it anyway)",
                         fg="yellow")
@@ -113,6 +117,9 @@ def list_ideas(topic: str, all_: Annotated[bool, typer.Option("--all", help="Inc
         if i.used_by and not all_:
             continue
         typer.echo(f"{i.id}  {'[used] ' if i.used_by else ''}{i.title}")
+        if i.premise and i.premise.verdict != "true":
+            typer.secho(f"        premise {i.premise.verdict}: {i.premise.explanation}",
+                        fg="red" if i.premise.verdict == "false" else "yellow")
         for s in i.similar_to:
             typer.secho(f"        ⚠ similar to {s}", fg="yellow")
 

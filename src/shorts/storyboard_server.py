@@ -150,6 +150,10 @@ class Storyboard:
                 prompt = body.get("prompt")
                 return 202, submit("gpu", run.id, "reroll", lambda: storyboard.reroll(ctx, self.run(run.id), i, prompt),
                                    scene=i + 1)
+            if action == "narration":
+                text = body["text"]
+                return 202, submit("gpu", run.id, "narration",
+                                   lambda: storyboard.edit_narration(ctx, self.run(run.id), i, text), scene=i + 1)
             if action == "pick":
                 storyboard.pick(run, i, body["candidate"])
                 return 200, {"ok": True}
@@ -162,6 +166,8 @@ class Storyboard:
             tags, bpm, key = body.get("tags"), body.get("bpm"), body.get("key")
             return 202, submit("gpu", run.id, "music",
                                lambda: storyboard.regenerate_music(ctx, self.run(run.id), tags, bpm, key))
+        if action == "recheck":
+            return 202, submit("gpu", run.id, "recheck", lambda: storyboard.recheck_facts(ctx, self.run(run.id)))
         if action == "preview":
             return 202, submit("gpu", run.id, "preview", lambda: storyboard.build_preview(ctx, self.run(run.id)))
         if action == "approve":

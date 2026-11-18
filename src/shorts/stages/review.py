@@ -21,6 +21,26 @@ class NeedsHumanReview(RuntimeError):
     pass
 
 
+def judge_script(ctx: Context, run: Run, script: Script, rnd: int = 1) -> tuple[ScriptReview, str]:
+    """One fact-check + critique of `script` (web research first when enabled). Returns (review, research notes)."""
+    app = ctx.app
+    topic = run.manifest.topic
+    lo, _, hi = word_range(app.video_target_seconds)
+    research = ""
+    if app.review_web_search:
+        log.info("[%s] fact-check round %d: web research", run.id, rnd)
+        research = web_research(ctx, topic, script.narration)
+    system = render("review_system", app.prompts_dir, channel_brief=app.channel_brief, words=f"{lo}-{hi}")
+    prompt = render("review_user", app.prompts_dir, topic=topic, research=research or "(none)",
+                    script=script.model_dump_json())
+    prompt += f"\n\nThe script has {word_count(script)} words of narration; the target is {lo}-{hi}."
+    return ctx.llm("review").generate_json(system=system, prompt=prompt, schema=ScriptReview), research
+
+
+def bad_claims(review: ScriptReview) -> list:
+    return [c for c in review.claims if c.verdict in ("incorrect", "unverifiable")]
+
+
 def review_script(ctx: Context, run: Run) -> ScriptReview | None:
     """Judge → (if not good enough) rewrite with the script writer → judge again, up to REVIEW_MAX_ROUNDS reviews.
 
@@ -36,23 +56,14 @@ def review_script(ctx: Context, run: Run) -> ScriptReview | None:
         current = run.script()
         original.write_text(current.model_dump_json(indent=2))
 
-    llm = ctx.llm("review")
     topic = run.manifest.topic
     lo, _, hi = word_range(app.video_target_seconds)
-    system = render("review_system", app.prompts_dir, channel_brief=app.channel_brief, words=f"{lo}-{hi}")
     rounds: list[dict] = []
     review: ScriptReview | None = None
     max_rounds = max(1, app.review_max_rounds)
     for rnd in range(1, max_rounds + 1):
-        research = ""
-        if app.review_web_search:
-            log.info("[%s] fact-check round %d: web research", run.id, rnd)
-            research = web_research(ctx, topic, current.narration)
-        prompt = render("review_user", app.prompts_dir, topic=topic, research=research or "(none)",
-                        script=current.model_dump_json())
-        prompt += f"\n\nThe script has {word_count(current)} words of narration; the target is {lo}-{hi}."
-        review = llm.generate_json(system=system, prompt=prompt, schema=ScriptReview)
-        bad = [c for c in review.claims if c.verdict in ("incorrect", "unverifiable")]
+        review, research = judge_script(ctx, run, current, rnd)
+        bad = bad_claims(review)
         log.info("[%s] review round %d: score %d, hook %d, %d bad claim(s), %d words", run.id, rnd, review.score,
                  review.hook_score, len(bad), word_count(current))
         rounds.append({"round": rnd, "words": word_count(current), "research": research,

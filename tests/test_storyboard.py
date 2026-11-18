@@ -137,3 +137,55 @@ def test_web_api(tmp_path, monkeypatch):
         assert json.loads((run.path / "script.json").read_text())["scenes"][0]["image_prompt"] == "a lighthouse"
     finally:
         httpd.shutdown()
+
+
+def test_several_candidates_per_scene(tmp_path):
+    ctx = make_ctx(tmp_path, storyboard_approval="true", image_candidates=3, **FAST)
+    run = new_run(ctx)
+    pipeline.execute(ctx, [run])
+    for i in range(2):
+        assert len(storyboard.candidates(run, i)) == 2  # 3 made: one is the scene image, two kept to pick from
+
+
+def test_candidates_with_image_check_keep_the_best(tmp_path):
+    ctx = make_ctx(tmp_path, storyboard_approval="true", image_candidates=2, image_qa_enabled="true",
+                   review_enabled="false", llm_mock_scenes=1)
+    run = new_run(ctx)
+    pipeline.execute(ctx, [run])
+    tries = run.stage("images").notes["qa"]["1"]
+    assert [t["try"] for t in tries] == [1, 2] and all("score" in t for t in tries)
+    assert len(storyboard.candidates(run, 0)) == 1
+
+
+def test_edit_narration_revoices_one_scene(tmp_path):
+    ctx = make_ctx(tmp_path, storyboard_approval="true", **FAST)
+    run = new_run(ctx)
+    pipeline.execute(ctx, [run])
+    before = run.timings()
+    other = (run.path / "audio" / "scene_01.wav").stat().st_mtime_ns
+    storyboard.edit_narration(ctx, run, 1, "A much longer second scene that now says something entirely different "
+                                           "and takes noticeably more time to read aloud.")
+    after = run.timings()
+    assert run.script().scenes[1].narration.startswith("A much longer")
+    assert after[1].duration > before[1].duration and after[0].duration == before[0].duration
+    assert (run.path / "audio" / "scene_01.wav").stat().st_mtime_ns == other  # untouched scene not re-voiced
+    words = json.loads((run.path / "words.json").read_text())
+    assert any(w["word"] == "entirely" for w in words)
+    notes = run.stage("review").notes
+    assert notes["edited_scenes"] == [2] and notes["stale"] is True
+    storyboard.approve(run)
+    assert pipeline.execute(ctx, [run])[run.id] == "ok"
+
+
+def test_recheck_facts_appends_a_round(tmp_path):
+    ctx = make_ctx(tmp_path, storyboard_approval="true", image_qa_enabled="false", llm_mock_scenes=2)
+    run = new_run(ctx)
+    pipeline.execute(ctx, [run])
+    n = len(json.loads((run.path / "review.json").read_text()))
+    storyboard.edit_narration(ctx, run, 0, "An edited first scene.")
+    assert storyboard.summary(run)["review"]["stale"] is True
+    res = storyboard.recheck_facts(ctx, run)
+    rounds = json.loads((run.path / "review.json").read_text())
+    assert len(rounds) == n + 1 and rounds[-1]["recheck"] and res["score"] == 8
+    s = storyboard.summary(run)["review"]
+    assert s["stale"] is False and s["round"] == rounds[-1]["round"]

@@ -1,0 +1,9 @@
+Topic: $topic
+Idea title: $title
+Hook: $hook
+Angle: $angle
+
+Research notes (web search results and page excerpts):
+$research
+
+Judge the idea's premise.

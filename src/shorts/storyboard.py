@@ -123,6 +123,63 @@ def pick(run: Run, i: int, candidate_name: str) -> None:
     _reset_after_approval(run)
 
 
+def edit_narration(ctx: Context, run: Run, i: int, text: str) -> None:
+    """Change what scene i says: re-record only that scene, re-time captions, refit music, drop its clips.
+
+    The fact-check result is marked stale (re-check it with `recheck_facts`)."""
+    from shorts import history
+    from shorts.media import ffmpeg
+    from shorts.stages import align, voice
+    from shorts.stages.music import make_music, music_file
+
+    text = " ".join(text.split())
+    if not text:
+        raise ValueError("narration can't be empty")
+    script = run.script()
+    if script.scenes[i].narration.strip() == text:
+        return
+    script.scenes[i].narration = text
+    run.write_json("script.json", script)
+    voice.synthesize(ctx, run, only={i})
+    align.align(ctx, run)
+    total = sum(t.slot for t in run.timings())
+    music = music_file(run)
+    if ctx.app.music_provider == "comfyui" and (music is None or ffmpeg.duration(music) < total):
+        make_music(ctx, run)  # generated music must cover the new length (folder music just loops)
+    _drop_clip(run, i)
+    for p in (run.path / "preview" / "clips").glob(f"scene_{i + 1:02d}.*"):
+        p.unlink()
+    rec = run.stage("review")
+    rec.notes.setdefault("edited_scenes", []).append(i + 1)
+    rec.notes["stale"] = True
+    run.save()
+    _reset_after_approval(run)
+    try:
+        history.upsert_from_run(ctx.app, run)
+    except Exception as e:  # noqa: BLE001
+        log.warning("history update failed for %s: %s", run.id, e)
+
+
+def recheck_facts(ctx: Context, run: Run) -> dict:
+    """Fact-check the current script again (no rewrite). Appended to review.json as a 'recheck' round."""
+    from shorts.stages.review import bad_claims, judge_script
+    from shorts.stages.script import word_count
+
+    script = run.script()
+    path = run.path / "review.json"
+    rounds = json.loads(path.read_text()) if path.exists() else []
+    n = (rounds[-1]["round"] + 1) if rounds else 1
+    review, research = judge_script(ctx, run, script, n)
+    rounds.append({"round": n, "recheck": True, "words": word_count(script), "research": research,
+                   "script": script.model_dump(), "review": review.model_dump()})
+    path.write_text(json.dumps(rounds, indent=2, ensure_ascii=False))
+    rec = run.stage("review")
+    rec.notes.update({"score": review.score, "hook_score": review.hook_score, "kept_round": n, "stale": False,
+                      "rounds": len(rounds)})
+    run.save()
+    return {"score": review.score, "bad_claims": len(bad_claims(review))}
+
+
 def set_motion(run: Run, i: int, mode: str) -> None:
     """'ai' = primary motion provider (e.g. LTX), 'still' = the fallback (Ken Burns pan/zoom, no GPU)."""
     if mode not in ("ai", "still"):
@@ -201,7 +258,8 @@ def summary(run: Run) -> dict[str, Any]:
         r = next((x for x in rounds if x["round"] == kept), rounds[-1] if rounds else None)
         if r:
             review = {"score": r["review"]["score"], "hook_score": r["review"]["hook_score"], "round": r["round"],
-                      "rounds": len(rounds), "claims": r["review"]["claims"], "problems": r["review"]["problems"]}
+                      "rounds": len(rounds), "claims": r["review"]["claims"], "problems": r["review"]["problems"],
+                      "stale": bool(notes.get("stale")), "edited_scenes": notes.get("edited_scenes", [])}
     qa = run.stage("images").notes.get("qa", {})
     scenes = []
     for i, sc in enumerate(script.scenes if script else []):
