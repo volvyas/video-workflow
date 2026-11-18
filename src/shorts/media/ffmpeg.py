@@ -81,6 +81,20 @@ def duration(path: Path) -> float:
     return int(h) * 3600 + int(mnt) * 60 + float(s)
 
 
+def envelope(path: Path, window: float = 0.02, rate: int = 16000) -> list[float]:
+    """RMS level (linear, 0-1) of `path` in windows of `window` seconds, mixed to mono."""
+    import array
+    import math
+
+    proc = subprocess.run([ffmpeg_bin(), "-v", "error", "-i", str(path), "-f", "s16le", "-ac", "1", "-ar", str(rate),
+                           "-"], capture_output=True)
+    if proc.returncode != 0:
+        raise FFmpegError(f"ffmpeg could not decode {path}: {proc.stderr.decode(errors='replace')[-300:]}")
+    samples = array.array("h", proc.stdout[: len(proc.stdout) // 2 * 2])
+    n = max(1, int(window * rate))
+    return [math.sqrt(sum(x * x for x in samples[i:i + n]) / n) / 32768 for i in range(0, len(samples), n)]
+
+
 def loudness(path: Path) -> float | None:
     """Integrated loudness in LUFS (EBU R128), or None if it can't be measured (e.g. silence)."""
     import re

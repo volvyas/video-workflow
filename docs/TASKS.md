@@ -29,6 +29,7 @@ Each task ends in something runnable or testable. Tasks are in dependency order.
 | 23 | **Storyboard approval** (2026-11-18): `approve` stage before motion (`STORYBOARD_APPROVAL`), `shorts storyboard` web page (stdlib server + one HTML page): re-roll/pick images, AI-motion/still per scene, regenerate music, animatic preview, approve & render, reject; `shorts approve/reject` | ✅ | 6 tests incl. the HTTP API |
 | 24 | **Storyboard round 2** (2026-11-18): edit narration per scene (re-voice one scene, re-align, refit music), re-check facts, `IMAGE_CANDIDATES`, idea premise fact-check (`IDEAS_FACT_CHECK`, `premise.json`, `FalsePremise`), music tag dedupe, SFX spec | ✅ | 8 tests |
 | 25 | **Search without servers** (2026-11-18): `wikipedia` provider (MediaWiki API), `multi` (merge + block content farms + relevance/reliability ranking), search cache, search stats per fact-check round with storyboard warning, judge told when search failed | ✅ | 6 tests; live Wikipedia + ddgs |
+| 26 | **Sound effects aligned** (2026-11-18): each effect's loudest moment lands on the cut (`SFX_ALIGN=peak`), effects leveled to `SFX_LEVEL_DB`; false-premise ideas scripted from the correction (`IDEAS_FALSE_PREMISE`) | ✅ | 4 + 3 tests; real whoosh on the cats video |
 | 13 | **Real-hardware bring-up** on the 5070 Ti: install F5/ComfyUI models, export real workflows, tune defaults | ⬜ | First real Short produced |
 | 14 | **Evaluation helpers**: `--env-file` A/B runs, per-run cost/time report in manifest | ⬜ | `shorts report` compares runs |
 

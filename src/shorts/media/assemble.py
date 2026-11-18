@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import functools
 import logging
+import math
 import random
 from pathlib import Path
 
@@ -18,6 +20,35 @@ _MUSIC_EXT = {".mp3", ".wav", ".m4a", ".ogg", ".flac", ".aac"}
 
 def _filter_escape(path: Path) -> str:
     return str(path).replace("\\", "/").replace(":", r"\:").replace("'", r"\'")
+
+
+_SFX_WINDOW = 0.02  # seconds per envelope step
+
+
+@functools.lru_cache(maxsize=256)
+def _sfx_profile(path: str, mtime_ns: int) -> tuple[float, float]:
+    """(time of the loudest moment in seconds, RMS level of that moment in dB) for a sound effect."""
+    env = ffmpeg.envelope(Path(path), _SFX_WINDOW)
+    if not env or max(env) <= 0:
+        return 0.0, -120.0
+    peak = max(env)
+    i = env.index(peak)
+    return (i + 0.5) * _SFX_WINDOW, 20 * math.log10(peak)
+
+
+def sfx_plan(app: AppSettings, files: list[Path], cuts: list[float]) -> list[dict]:
+    """When and how loud to play each effect. With SFX_ALIGN=peak the loudest moment of the effect lands on the
+    cut (whatever its leading silence or build-up), and SFX_LEVEL_DB levels every effect to the same loudness."""
+    plan = []
+    for f, cut in zip(files, cuts):
+        peak_t, peak_db = _sfx_profile(str(f), f.stat().st_mtime_ns)
+        start = cut - (peak_t if app.sfx_align == "peak" else app.sfx_lead)
+        gain_db = 0.0
+        if app.sfx_level_db is not None and peak_db > -90:
+            gain_db = max(-30.0, min(24.0, app.sfx_level_db - peak_db))  # don't blow up near-silent files
+        plan.append({"file": f, "delay_ms": max(0, round(start * 1000)), "skip": round(max(0.0, -start), 3),
+                     "gain": round(app.sfx_volume * 10 ** (gain_db / 20), 4), "peak_at": round(peak_t, 3)})
+    return plan
 
 
 def pick_sfx(app: AppSettings, seed: int, count: int) -> list[Path]:
@@ -113,10 +144,10 @@ def assemble(app: AppSettings, run: Run, clips: list[Path], *, out: Path | None 
     else:
         parts.append("[1:a]aresample=48000[voice]")
         mix.append("[voice]")
-    for k, (f, cut) in enumerate(zip(sfx, cuts)):
-        delay = max(0, int((cut - app.sfx_lead) * 1000))
-        parts.append(f"[{sfx_first_input + k}:a]aresample=48000,aformat=channel_layouts=mono,"
-                     f"volume={app.sfx_volume},adelay=delays={delay}:all=1[s{k}]")
+    for k, p in enumerate(sfx_plan(app, sfx, cuts)):
+        trim = f"atrim=start={p['skip']},asetpts=PTS-STARTPTS," if p["skip"] else ""
+        parts.append(f"[{sfx_first_input + k}:a]{trim}aresample=48000,aformat=channel_layouts=mono,"
+                     f"volume={p['gain']},adelay=delays={p['delay_ms']}:all=1[s{k}]")
         mix.append(f"[s{k}]")
     if len(mix) > 1:
         parts.append(f"{''.join(mix)}amix=inputs={len(mix)}:duration=first:normalize=0,{loud}[a]")

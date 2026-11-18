@@ -1,14 +1,18 @@
 # Sound effects for scene cuts
 
-The pipeline plays **one random file from this folder at every scene cut** (`SFX_DIR`), starting `SFX_LEAD` = 0.12 s
-before the cut, at `SFX_VOLUME` = 0.35 under the voice. With 8 scenes that's 7 effects per video, so they must be
+The pipeline plays **one random file from this folder at every scene cut** (`SFX_DIR`). It finds each file's
+loudest moment and starts the file so that moment lands **exactly on the cut** (`SFX_ALIGN=peak`), and levels every
+file to the same loudness (`SFX_LEVEL_DB=-12`, then `SFX_VOLUME`=0.35 under the voice). So leading silence, a long
+build-up or a quiet export are all fine. With 8 scenes that's 7 effects per video, so they must be
 short, subtle and varied. A video with the same loud whoosh 7 times sounds cheap.
 
 ## What every file should be
-- **Short:** 0.3–1.2 s, with a quick fade-out at the end and no silence at the start.
-- **Peak early:** the main hit or the loudest part of the swoosh at **0.10–0.20 s** from the start, so it lands on the cut.
+- **Short:** 0.3–1.5 s including any build-up, with a quick fade-out at the end.
+- **One clear peak:** the hit or the loudest part of the swoosh is what lands on the cut (it can be anywhere in
+  the file).
 - **No voices, no music, no melody** (a pitch of its own fights the background music).
-- **Level:** peaks around −3 dBFS, all files roughly equally loud. Mono or stereo, WAV/MP3/FLAC/OGG, 44.1 or 48 kHz.
+- **Level:** any reasonable level (leveled automatically; files quieter than about −36 dB RMS can't be fully
+  raised). Mono or stereo, WAV/MP3/FLAC/OGG, 44.1 or 48 kHz.
 - **Names:** anything; files are picked at random. Prefix them by type if you like (`whoosh_01.wav`).
 
 ## The set (about 10 files is plenty)

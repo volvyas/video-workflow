@@ -78,7 +78,9 @@ class AppSettings(BaseModel):
     # --- retention ------------------------------------------------------------
     sfx_dir: Path | None = Path("assets/sfx")  # whooshes/hits played on scene cuts
     sfx_volume: float = 0.35
-    sfx_lead: float = 0.12  # start the sound slightly before the cut
+    sfx_lead: float = 0.12  # SFX_ALIGN=start: start the sound this long before the cut
+    sfx_align: str = "peak"  # peak (the effect's loudest moment lands on the cut) | start (start SFX_LEAD before it)
+    sfx_level_db: float | None = -12.0  # loudness of each effect's loudest moment before SFX_VOLUME; off = as recorded
 
     # --- output format ------------------------------------------------------
     video_width: int = 1080
@@ -129,7 +131,7 @@ class AppSettings(BaseModel):
 
     extra: dict[str, Any] = Field(default_factory=dict, exclude=True)
 
-    @field_validator("music_level_db", mode="before")
+    @field_validator("music_level_db", "sfx_level_db", mode="before")
     @classmethod
     def _off_means_none(cls, v):
         return None if isinstance(v, str) and v.strip().lower() in ("off", "none", "fixed") else v
