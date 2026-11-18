@@ -21,6 +21,32 @@ AI-made channels can be refused monetization even after reaching the numbers. Co
 human storyboard review, varied formats and styles, fact-checked content, your own voice (cloning), and real
 footage where it fits. Always set YouTube's **altered or synthetic content** disclosure for realistic AI visuals.
 
+### Policy check (2026-11-18), after news that "YouTube demonetizes AI videos"
+The official [channel monetization policies](https://support.google.com/youtube/answer/1311392) (inauthentic-content
+section, last changed July 15, 2025) **don't ban AI**. They exclude **mass-produced or templated** content:
+- not monetizable: "AI-generated content made with generic or unoriginal templates giving the impression of mass
+  production"; "image slideshows, templated storylines, or scrolling text with minimal or no narrative, commentary,
+  or educational value"; "characters are put in the same situation over and over again with the same outcome";
+  AI personas posing as human experts on health, legal, finance or politics;
+- allowed: AI "to visualize a unique character and narrative you invented", and AI "to edit your video scripts or
+  generate a unique background visual for your content".
+
+Third-party blogs report a further clarification (July 2026) and channels removed from YPP (January 2026); both
+are unconfirmed officially, and both point the same way: the target is sameness and mass production, not the tool.
+
+**Our risk is sameness, not AI.** Checklist:
+| Signal | Status | To do |
+|---|---|---|
+| Educational value | ✅ fact-checked, sources | pin the source comment |
+| A human author's perspective | ⚠️ scripts are 100% AI | you choose topics and angles, edit hooks, add your own lines and opinion on the storyboard |
+| Not template-like | ⚠️ one fixed structure | several formats (myth vs. fact, top-3, "what if…", Q&A), varied structure and length |
+| A human voice | ❌ Kokoro preset | your own voice (cloning or recorded): the strongest single signal |
+| No same-situation repeats | ✅ facts | keep it in mind for skits |
+
+Strategy: an **AI-assisted channel with a visible human author**, not a fully automated one. Demonetization doesn't
+stop growth: views, subscribers and learning still count, and the channel can be adjusted before reaching the
+thresholds.
+
 ## 2. Measure what you control, not views
 Early Shorts views are mostly YouTube testing a video on small audiences. Judge each video by (YouTube Studio →
 Analytics → the Short):
@@ -84,5 +110,6 @@ line flows into the first and invites a replay).
 | `VIDEO_TARGET_SECONDS=30` test batch | ⬜ next batch |
 | YouTube upload | ✅ manual in Studio for now ([SETUP §9.1](SETUP.md)); API + scheduling later after Google's audit (§9.2) |
 | Analytics loop: pull retention, mark `popular` automatically | ⬜ |
-| Own voice (cloning via Chatterbox in ComfyUI; F5 weights are non-commercial) | ⬜ needs a voice recording |
+| Own voice (cloning via Chatterbox in ComfyUI; F5 weights are non-commercial) | ⬜ needs a voice recording; high priority after the policy check |
+| Several video formats (myth vs. fact, top-3, what-if, Q&A) chosen per idea | ⬜ against the template signal |
 | Cross-posting uploaders (TikTok / Reels): their APIs need an app review | ⬜ later |
