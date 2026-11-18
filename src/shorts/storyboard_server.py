@@ -32,6 +32,28 @@ from shorts.run import Run
 log = logging.getLogger("shorts.storyboard.server")
 
 
+def reveal(path: Path) -> None:
+    """Open the system file manager with `path` selected (or at least its folder)."""
+    path = path.resolve()
+    if sys.platform.startswith("win"):
+        subprocess.Popen(["explorer", f"/select,{path}"])
+        return
+    if sys.platform == "darwin":
+        subprocess.Popen(["open", "-R", str(path)])
+        return
+    # Linux: the freedesktop FileManager1 D-Bus call selects the file in Nautilus, Dolphin, Nemo, Thunar, ...
+    try:
+        r = subprocess.run(["dbus-send", "--session", "--print-reply", "--dest=org.freedesktop.FileManager1",
+                            "--type=method_call", "/org/freedesktop/FileManager1",
+                            "org.freedesktop.FileManager1.ShowItems", f"array:string:{path.as_uri()}", "string:"],
+                           capture_output=True, timeout=5)
+        if r.returncode == 0:
+            return
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    subprocess.Popen(["xdg-open", str(path.parent)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
 class Jobs:
     """Two FIFO workers: 'gpu' for quick edits (re-roll, music, preview), 'render' for approved runs."""
 
@@ -126,7 +148,7 @@ class Storyboard:
             raise RuntimeError(f"render failed (exit {rc}), see {log_file}")
 
     # ------------------------------------------------------------ API
-    def handle(self, method: str, parts: list[str], body: dict) -> tuple[int, Any]:
+    def handle(self, method: str, parts: list[str], body: dict, local: bool = True) -> tuple[int, Any]:
         if method == "GET" and parts == ["runs"]:
             return 200, self.list_runs()
         if method == "GET" and parts == ["jobs"]:
@@ -166,6 +188,12 @@ class Storyboard:
             tags, bpm, key = body.get("tags"), body.get("bpm"), body.get("key")
             return 202, submit("gpu", run.id, "music",
                                lambda: storyboard.regenerate_music(ctx, self.run(run.id), tags, bpm, key))
+        if action == "reveal":
+            if not local:
+                return 403, {"error": "Show in folder only works when the page is opened on the computer running "
+                                      "`shorts storyboard`; use Download instead"}
+            reveal(self.file(run.id, body.get("file") or "final.mp4"))
+            return 200, {"ok": True}
         if action == "recheck":
             return 202, submit("gpu", run.id, "recheck", lambda: storyboard.recheck_facts(ctx, self.run(run.id)))
         if action == "preview":
@@ -221,11 +249,13 @@ def make_handler(sb: Storyboard) -> type[BaseHTTPRequestHandler]:
                     if method == "POST":
                         n = int(self.headers.get("Content-Length") or 0)
                         body = json.loads(self.rfile.read(n) or b"{}") if n else {}
-                    code, obj = sb.handle(method, [p for p in path[5:].split("/") if p], body)
+                    local = self.client_address[0] in ("127.0.0.1", "::1", "::ffff:127.0.0.1")
+                    code, obj = sb.handle(method, [p for p in path[5:].split("/") if p], body, local)
                     return self._json(code, obj)
                 if method == "GET" and path.startswith("/files/"):
                     run_id, _, rel = path[7:].partition("/")
-                    return self._file(sb.file(run_id, rel))
+                    download = "download=1" in (urlparse(self.path).query or "")
+                    return self._file(sb.file(run_id, rel), download_as=f"{run_id}.mp4" if download else None)
                 self._json(404, {"error": "not found"})
             except ConnectionError:  # the browser dropped the connection (seeking, switching scenes): normal
                 self.close_connection = True
@@ -241,7 +271,7 @@ def make_handler(sb: Storyboard) -> type[BaseHTTPRequestHandler]:
                 except ConnectionError:
                     self.close_connection = True
 
-        def _file(self, p: Path) -> None:
+        def _file(self, p: Path, download_as: str | None = None) -> None:
             """Serve a file in chunks, with byte ranges (browsers seek audio/video with range requests)."""
             size = p.stat().st_size
             ctype = mimetypes.guess_type(p.name)[0] or "application/octet-stream"
@@ -270,6 +300,8 @@ def make_handler(sb: Storyboard) -> type[BaseHTTPRequestHandler]:
             self.send_header("Cache-Control", "no-store")
             if code == HTTPStatus.PARTIAL_CONTENT:
                 self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+            if download_as:
+                self.send_header("Content-Disposition", f'attachment; filename="{download_as}"')
             self.end_headers()
             if self.command == "HEAD":
                 return

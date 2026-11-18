@@ -189,3 +189,30 @@ def test_recheck_facts_appends_a_round(tmp_path):
     assert len(rounds) == n + 1 and rounds[-1]["recheck"] and res["score"] == 8
     s = storyboard.summary(run)["review"]
     assert s["stale"] is False and s["round"] == rounds[-1]["round"]
+
+
+def test_show_in_folder_and_download(tmp_path, monkeypatch):
+    from shorts import storyboard_server
+    from shorts.storyboard_server import serve
+
+    for k in ("STYLE_PROFILE", "STYLE_PROMPT"):
+        monkeypatch.delenv(k, raising=False)
+    shown = []
+    monkeypatch.setattr(storyboard_server, "reveal", lambda p: shown.append(p))
+    ctx = make_ctx(tmp_path, **FAST)
+    run = new_run(ctx)
+    pipeline.execute(ctx, [run])
+    httpd = serve("127.0.0.1", 0, _env_file(tmp_path, **FAST))
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        c = httpx.Client(base_url=f"http://127.0.0.1:{httpd.server_address[1]}", timeout=30)
+        assert c.post(f"/api/run/{run.id}/reveal", json={"file": "final.mp4"}).json() == {"ok": True}
+        assert shown == [run.final_video.resolve()]
+        assert c.post(f"/api/run/{run.id}/reveal", json={"file": "../../test.env"}).status_code == 404
+        r = c.get(f"/files/{run.id}/final.mp4?download=1")
+        assert r.status_code == 200 and "attachment" in r.headers["content-disposition"]
+        # from another machine (not loopback) the folder can't be opened
+        code, _ = httpd.storyboard.handle("POST", ["run", run.id, "reveal"], {"file": "final.mp4"}, local=False)
+        assert code == 403
+    finally:
+        httpd.shutdown()

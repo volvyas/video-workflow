@@ -145,8 +145,8 @@ function render() {
   const d = data, busy = busyScenes();
   const rendering = runBusy("render");
   const st = rendering ? "rendering" : d.state;
-  const video = d.final ? {src: file(d.final, d.final_mtime), label: "Final video"} :
-                d.preview ? {src: file(d.preview, d.preview_mtime), label: "Animatic preview (stills + pan/zoom)"} : null;
+  const video = d.final ? {src: file(d.final, d.final_mtime), rel: d.final, label: "Final video"} :
+                d.preview ? {src: file(d.preview, d.preview_mtime), rel: d.preview, label: "Animatic preview (stills + pan/zoom)"} : null;
   const rv = d.review || {};
   const claims = (rv.claims || []).map(c => `<div class="claim"><b class="v-${esc(c.verdict)}">${esc(c.verdict)}</b> ${esc(c.claim)}
       ${c.correction ? `<div class="small">→ ${esc(c.correction)}</div>` : ""}
@@ -164,7 +164,11 @@ function render() {
       </div>
     </div>
     <div class="top">
-      <div>${video ? `<video src="${video.src}" controls playsinline preload="metadata"></video><div class="small">${video.label}</div>`
+      <div>${video ? `<video src="${video.src}" controls playsinline preload="metadata"></video><div class="small">${video.label}</div>
+                   <div class="row" style="margin-top:8px">
+                     <button onclick="reveal('${esc(video.rel)}')" title="open the folder on this computer with the video selected">Show in folder</button>
+                     <a href="${video.src}${video.src.includes("?") ? "&" : "?"}download=1" style="text-align:center"><button style="width:100%">Download</button></a>
+                   </div>`
                    : `<div class="panel small">No preview yet. "Build preview" makes an animatic from the current images, voice and music in a couple of minutes, without the GPU.</div>`}</div>
       <div>
         <div class="panel"><h3>Fact-check</h3>
@@ -243,6 +247,7 @@ const recheck = () => act(() => api(`${R()}/recheck`, {}), "Fact-check queued");
 const pick = (n, c) => act(async () => { await api(`${R()}/scene/${n}/pick`, {candidate: c}); await openRun(cur); }, `Scene ${n}: candidate selected`);
 const motion = (n, mode) => act(async () => { await api(`${R()}/scene/${n}/motion`, {mode}); await openRun(cur); });
 const music = () => act(() => api(`${R()}/music`, {tags: $("#mtags").value, bpm: +$("#mbpm").value, key: $("#mkey").value}), "Music queued");
+const reveal = rel => act(() => api(`${R()}/reveal`, {file: rel}), "Opening the folder…");
 const preview = () => act(() => api(`${R()}/preview`, {}), "Preview queued");
 function approve() {
   if (!confirm("Approve this storyboard and render the final video (AI motion runs on the GPU box)?")) return;
