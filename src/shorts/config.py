@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import dotenv_values
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 
 class ConfigError(RuntimeError):
@@ -91,8 +91,8 @@ class AppSettings(BaseModel):
     # --- audio --------------------------------------------------------------
     scene_gap_ms: int = 120
     music_dir: Path | None = Path("assets/music")
-    music_volume: float = 0.12  # fixed gain, used only when MUSIC_LEVEL_DB is empty or loudness can't be measured
-    music_level_db: float | None = -12.0  # music loudness relative to the voice (before ducking under speech)
+    music_volume: float = 0.12  # fixed gain, used when MUSIC_LEVEL_DB=off or loudness can't be measured
+    music_level_db: float | None = -12.0  # music loudness vs the voice (before ducking); 'off' = MUSIC_VOLUME
 
     # --- captions -----------------------------------------------------------
     captions_enabled: bool = True
@@ -125,6 +125,11 @@ class AppSettings(BaseModel):
     auto_upload: bool = False
 
     extra: dict[str, Any] = Field(default_factory=dict, exclude=True)
+
+    @field_validator("music_level_db", mode="before")
+    @classmethod
+    def _off_means_none(cls, v):
+        return None if isinstance(v, str) and v.strip().lower() in ("off", "none", "fixed") else v
 
     def llm_for(self, stage: str) -> str:
         override = getattr(self, f"{stage}_llm_provider", None)

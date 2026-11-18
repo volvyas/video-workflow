@@ -77,4 +77,4 @@ def test_music_level_follows_the_voice(tmp_path):
         import math
         level = ffmpeg.loudness(track) + 20 * math.log10(gain)
         assert abs(level - (ffmpeg.loudness(quiet) - 12)) < 0.2
-    assert music_gain(make_ctx(tmp_path, music_level_db="").app, quiet, loud) == 0.12
+    assert music_gain(make_ctx(tmp_path, music_level_db="off").app, quiet, loud) == 0.12
