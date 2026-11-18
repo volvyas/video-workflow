@@ -92,7 +92,7 @@ class AppSettings(BaseModel):
     scene_gap_ms: int = 120
     music_dir: Path | None = Path("assets/music")
     music_volume: float = 0.12  # fixed gain, used when MUSIC_LEVEL_DB=off or loudness can't be measured
-    music_level_db: float | None = -12.0  # music loudness vs the voice (before ducking); 'off' = MUSIC_VOLUME
+    music_level_db: float | None = -16.0  # music loudness vs the voice (before ducking); 'off' = MUSIC_VOLUME
 
     # --- captions -----------------------------------------------------------
     captions_enabled: bool = True
