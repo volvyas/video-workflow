@@ -37,6 +37,7 @@ class AppSettings(BaseModel):
     motion_fallback: str | None = "kenburns"
     motion_scenes: str = "all"  # all | none | first:N | every:N
     uploader: str = "none"
+    music_provider: str = "folder"  # comfyui (generated per video, e.g. ACE-Step) | folder (MUSIC_DIR) | none
     search_provider: str = "none"  # web search for local-LLM fact-checking: ddgs | searxng | none
     similarity_provider: str = "lexical"  # history repeat check: lexical | embeddings | llm | none
 

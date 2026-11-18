@@ -51,6 +51,11 @@ BUILTINS: dict[str, dict[str, str]] = {
         "embeddings": "shorts.providers.similarity.embeddings:EmbeddingsSimilarity",
         "llm": "shorts.providers.similarity.llm:LLMSimilarity",
     },
+    "music": {
+        "comfyui": "shorts.providers.music.comfyui:ComfyMusic",
+        "folder": "shorts.providers.music.folder:FolderMusic",
+        "none": "shorts.providers.music.folder:NoMusic",
+    },
     "upload": {
         "youtube": "shorts.providers.upload.youtube:YouTubeUploader",
         "none": "shorts.providers.upload.none:NoUpload",

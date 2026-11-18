@@ -34,6 +34,20 @@ class Scene(BaseModel):
     on_screen_text: str = Field(description="Optional short overlay text; empty string if none")
 
 
+Key = Literal[
+    "C major", "C# major", "D major", "Eb major", "E major", "F major", "F# major", "G major", "Ab major", "A major",
+    "Bb major", "B major", "C minor", "C# minor", "D minor", "Eb minor", "E minor", "F minor", "F# minor", "G minor",
+    "Ab minor", "A minor", "Bb minor", "B minor",
+]
+
+
+class MusicSpec(BaseModel):
+    tags: str = Field(default="", description="Instrumental background score for this video as comma-separated "
+                      "music tags: genre, mood, 2-4 instruments, production style; always ends with 'instrumental'")
+    bpm: int = Field(default=90, description="Tempo, 60-140")
+    key: Key = Field(default="A minor", description="Musical key")
+
+
 class Script(BaseModel):
     title: str = Field(description="YouTube title, max 70 characters, no clickbait lies")
     description: str = Field(description="YouTube description, 1-3 sentences plus hashtags")
@@ -44,6 +58,8 @@ class Script(BaseModel):
                     "appended to every image prompt, in English"
     )
     scenes: list[Scene]
+    music: MusicSpec = Field(default_factory=MusicSpec,  # default only for scripts saved before this field existed
+                             description="Background music that fits this video's topic, mood and pace")
 
     @property
     def narration(self) -> str:

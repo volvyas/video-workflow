@@ -19,6 +19,7 @@
 | SDXL base / most SDXL finetunes | CreativeML Open RAIL++-M (+ finetune terms) | ✅ usually | Use restrictions (no harmful use); check each finetune on Civitai |
 | **Wan 2.2** | Apache-2.0 | ✅ | LoRAs (e.g. LightX2V) have their own cards; check them |
 | **LTX-2 / LTX-2.3** (current I2V default) | LTX-2 Community License | ✅ under US$10M revenue | Free incl. commercial use for individuals/companies with annual revenue (incl. affiliates) below US$10M; above that a paid license is required. Licensor claims no rights in your outputs. Has an acceptable-use list (Attachment A) and asks you to use the latest version. Checked 2026-11-17 |
+| **ACE-Step 1.5 XL Turbo** (generated music) | MIT | ✅ | Checked on the model card 2026-11-18 |
 | **Z-Image-Turbo** (current image default) | Apache-2.0 | ✅ | Checked on the model card 2026-11-17 |
 | Montserrat font | SIL OFL | ✅ | |
 | Music | per track | ⚠️ | YouTube Audio Library: some tracks require attribution in the description |

@@ -275,7 +275,8 @@ def providers():
     a = ctx().app
     selected = {"llm": a.llm_provider, "tts": a.tts_provider, "align": a.align_provider,
                 "image": a.image_provider, "motion": f"{a.motion_provider} (fallback: {a.motion_fallback})",
-                "search": a.search_provider, "similarity": a.similarity_provider, "upload": a.uploader}
+                "search": a.search_provider, "similarity": a.similarity_provider, "music": a.music_provider,
+                "upload": a.uploader}
     for kind, names in BUILTINS.items():
         typer.echo(f"{kind:10s} selected={selected.get(kind, '?'):<32s} available: {', '.join(names)}")
 
@@ -289,7 +290,8 @@ def check(
     a = c.app
     targets = [("llm", a.llm_for("ideas")), ("llm", a.llm_for("script")), ("tts", a.tts_provider),
                ("align", a.align_provider), ("image", a.image_provider), ("motion", a.motion_provider),
-               ("motion", a.motion_fallback), ("similarity", a.similarity_provider), ("upload", a.uploader)]
+               ("motion", a.motion_fallback), ("similarity", a.similarity_provider), ("music", a.music_provider),
+               ("upload", a.uploader)]
     ok = True
     for kind, name in dict.fromkeys(t for t in targets if t[1] and t[1] != "none" or t[0] == "upload"):
         if skip and kind in skip:

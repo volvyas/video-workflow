@@ -358,6 +358,17 @@ uv run shorts comfy test-motion comfy_test.png --prompt "waves crash, light beam
 - **Sound effects:** put a few short whoosh/swish/hit sounds (0.2–0.8 s, royalty-free, e.g. from freesound.org with CC0
   or Pixabay) in `assets/sfx/`. One plays on every scene cut (`SFX_VOLUME`, `SFX_LEAD`). Empty folder = none.
 
+## 7a. Generated music (ACE-Step 1.5)
+
+`MUSIC_PROVIDER=comfyui` generates an instrumental track per video on the ComfyUI machine, exactly as long as the
+narration. The script LLM writes the music brief (`music.tags`, `bpm`, `key` in `script.json`) to fit the topic.
+- Models (from ComfyUI's *ACE-Step 1.5 XL Turbo* template): `acestep_v1.5_xl_turbo_bf16` (diffusion_models),
+  `qwen_0.6b_ace15` + `qwen_4b_ace15` (text_encoders), `ace_1.5_vae` (vae). License: MIT.
+- Workflow: `workflows/music_acestep15_turbo.json`, placeholders `tags lyrics bpm key seconds seed filename_prefix`.
+  Lyrics are `[Instrumental]` so nothing sings over the narration.
+- `MUSIC_PROVIDER=folder` picks a random track from `MUSIC_DIR` instead; `none` disables music.
+- Regenerate only the music of a run: `shorts resume <run> --force music` (re-assembles too).
+
 ## 7b. Style profiles
 
 A profile is a small env file in `styles/` that sets the channel look: `STYLE_PROMPT` and `NEGATIVE_PROMPT` for the image

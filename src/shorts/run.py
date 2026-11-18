@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 
 from shorts.models import Idea, Script, SceneTiming, WordTiming
 
-STAGES = ["script", "review", "voice", "align", "images", "motion", "assemble", "upload"]
+STAGES = ["script", "review", "voice", "align", "music", "images", "motion", "assemble", "upload"]
 
 # files/folders each stage produces (relative to the run folder)
 OUTPUTS: dict[str, list[str]] = {
@@ -21,6 +21,7 @@ OUTPUTS: dict[str, list[str]] = {
     "review": ["review.json"],
     "voice": ["audio", "timings.json"],
     "align": ["words.json"],
+    "music": [f"music.{ext}" for ext in ("wav", "mp3", "flac", "m4a", "ogg", "aac")],
     "images": ["images"],
     "motion": ["clips"],
     "assemble": ["segments", "captions.ass", "final.mp4"],
@@ -29,10 +30,11 @@ OUTPUTS: dict[str, list[str]] = {
 
 # stages whose outputs become stale when a stage is re-run
 DEPENDENTS: dict[str, list[str]] = {
-    "script": ["review", "voice", "align", "images", "motion", "assemble", "upload"],
-    "review": ["voice", "align", "images", "motion", "assemble", "upload"],
-    "voice": ["align", "assemble", "upload"],
+    "script": ["review", "voice", "align", "music", "images", "motion", "assemble", "upload"],
+    "review": ["voice", "align", "music", "images", "motion", "assemble", "upload"],
+    "voice": ["align", "music", "assemble", "upload"],  # music length follows the narration
     "align": ["assemble", "upload"],
+    "music": ["assemble", "upload"],
     "images": ["motion", "assemble", "upload"],
     "motion": ["assemble", "upload"],
     "assemble": ["upload"],

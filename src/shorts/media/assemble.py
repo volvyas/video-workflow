@@ -31,14 +31,6 @@ def pick_sfx(app: AppSettings, seed: int, count: int) -> list[Path]:
     return [rnd.choice(files) for _ in range(count)]
 
 
-def pick_music(app: AppSettings, seed: int) -> Path | None:
-    d = app.music_dir
-    if not d or not Path(d).is_dir():
-        return None
-    tracks = sorted(p for p in Path(d).iterdir() if p.suffix.lower() in _MUSIC_EXT)
-    return random.Random(seed).choice(tracks) if tracks else None
-
-
 def normalize_clip(app: AppSettings, clip: Path, target: float, out: Path) -> None:
     """Scale/crop to the output frame, then trim, or slow down (≤ max_slowdown) and freeze, to hit `target`."""
     W, H, fps = app.video_width, app.video_height, app.video_fps
@@ -72,7 +64,9 @@ def assemble(app: AppSettings, run: Run, clips: list[Path]) -> Path:
 
     total = sum(t.slot for t in timings)
     args: list[str] = ["-f", "concat", "-safe", "0", "-i", concat_list, "-i", run.path / "audio" / "voice.wav"]
-    music = pick_music(app, run.manifest.seed)
+    from shorts.stages.music import music_file
+
+    music = music_file(run)  # written by the music stage (generated or picked from MUSIC_DIR)
     if music:
         args += ["-stream_loop", "-1", "-i", music]
     cuts = [t.start for t in timings[1:]]  # a whoosh on every scene change

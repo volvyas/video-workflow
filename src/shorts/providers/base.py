@@ -135,6 +135,16 @@ class SearchProvider(Provider):
     def search(self, query: str, max_results: int) -> list[SearchResult]: ...
 
 
+class MusicProvider(Provider):
+    """Background music for one video."""
+
+    kind = "music"
+
+    @abstractmethod
+    def generate(self, *, tags: str, bpm: int, key: str, seconds: float, seed: int, out_path: Path) -> Path | None:
+        """Write a track of at least `seconds` (any audio format; the real path is returned) or None for no music."""
+
+
 class SimilarityProvider(Provider):
     """Scores how similar a text is to each of several earlier texts (0 = unrelated, 1 = same story)."""
 
@@ -169,4 +179,5 @@ KIND_BASES: dict[str, type[Provider]] = {
     "upload": Uploader,
     "search": SearchProvider,
     "similarity": SimilarityProvider,
+    "music": MusicProvider,
 }

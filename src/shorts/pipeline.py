@@ -11,18 +11,18 @@ from shorts.context import Context
 from shorts.media.assemble import assemble
 from shorts.models import StoredIdea
 from shorts.run import STAGES, Run
-from shorts.stages import align, ideas, review, script, visuals, voice
+from shorts.stages import align, ideas, music, review, script, visuals, voice
 
 log = logging.getLogger("shorts.pipeline")
 
 # stages that run during `make`; upload is separate (review gate)
-BUILD_STAGES = ["script", "review", "voice", "align", "images", "motion", "assemble"]
+BUILD_STAGES = ["script", "review", "voice", "align", "music", "images", "motion", "assemble"]
 
 
 def _provider_name(ctx: Context, stage: str) -> str:
     a = ctx.app
     return {
-        "script": a.llm_for("script"), "review": a.llm_for("review"), "voice": a.tts_provider, "align": a.align_provider,
+        "script": a.llm_for("script"), "review": a.llm_for("review"), "voice": a.tts_provider, "align": a.align_provider, "music": a.music_provider,
         "images": a.image_provider, "motion": f"{a.motion_provider}->{a.motion_fallback}",
         "assemble": "ffmpeg", "upload": a.uploader,
     }.get(stage, "")
@@ -43,6 +43,7 @@ def _runner(stage: str) -> Callable[[Context, Run, set[int] | None], object]:
         "review": lambda c, r, o: review.review_script(c, r),
         "voice": voice.synthesize,
         "align": lambda c, r, o: align.align(c, r),
+        "music": lambda c, r, o: music.make_music(c, r),
         "motion": visuals.generate_motion,
         "assemble": lambda c, r, o: assemble(c.app, r, [visuals.scene_file(r, "clips", t.index) for t in r.timings()]),
     }[stage]
@@ -52,7 +53,8 @@ def _runner(stage: str) -> Callable[[Context, Run, set[int] | None], object]:
 _BATCH = {"images": visuals.generate_images_batch}
 
 # stage -> provider kind to unload after the stage finishes for the whole batch
-_UNLOAD_AFTER = {"review": "llm", "voice": "tts", "align": "align", "images": "image", "motion": "motion"}
+_UNLOAD_AFTER = {"review": "llm", "voice": "tts", "align": "align", "music": "music", "images": "image",
+                 "motion": "motion"}
 # the image stage may also have loaded the QA LLM
 _UNLOAD_ALSO = {"images": "llm"}
 
