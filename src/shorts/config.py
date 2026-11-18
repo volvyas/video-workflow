@@ -62,6 +62,7 @@ class AppSettings(BaseModel):
     search_cache_days: int = 30  # reuse search results this long (0 = off); search engines rate-limit
     search_cache_file: Path | None = Path("history/search_cache.json")
     ideas_fact_check: bool = False  # check each idea's central claim (web search + LLM) before scripting
+    ideas_false_premise: str = "correct"  # correct (script from the corrected premise) | skip (never script it)
     storyboard_approval: bool = False  # stop before motion until approved on the storyboard page
     image_candidates: int = 1  # images per scene in the first round (pick on the storyboard; QA keeps the best)
     image_qa_enabled: bool = True

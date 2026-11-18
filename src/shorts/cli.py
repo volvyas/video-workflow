@@ -118,8 +118,13 @@ def list_ideas(topic: str, all_: Annotated[bool, typer.Option("--all", help="Inc
             continue
         typer.echo(f"{i.id}  {'[used] ' if i.used_by else ''}{i.title}")
         if i.premise and i.premise.verdict != "true":
-            typer.secho(f"        premise {i.premise.verdict}: {i.premise.explanation}",
-                        fg="red" if i.premise.verdict == "false" else "yellow")
+            from shorts.stages.ideas import usable
+
+            ok = usable(ctx().app, i.premise)
+            typer.secho(f"        premise {i.premise.verdict}{'' if ok else ' (skipped)'}: {i.premise.explanation}"
+                        + (f"\n        → scripted from: {i.premise.corrected_premise}" if ok and
+                           i.premise.corrected_premise else ""),
+                        fg="red" if not ok else "yellow")
         for s in i.similar_to:
             typer.secho(f"        ⚠ similar to {s}", fg="yellow")
 

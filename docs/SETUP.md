@@ -411,7 +411,8 @@ with no incorrect claims.
 - With `SEARCH_PROVIDER=none` the reviewer checks facts from its own knowledge only (the log warns).
 
 **Idea premise check** (`IDEAS_FACT_CHECK=true`): each new idea's central claim is checked with web search
-before any script is written. `false` → never picked automatically (`list-ideas` shows it in red) and a run
+before any script is written. `false` → with `IDEAS_FALSE_PREMISE=correct` (default) the script is built on the
+corrected premise and debunks the myth; without a correction, or with `skip`, the idea is never picked and a run
 started from it stops before the script (`auto_rejected`); `misleading` → the script writer gets the corrected
 premise; `unverifiable` → the writer is told to state only what is well established. Result per run:
 `premise.json`.

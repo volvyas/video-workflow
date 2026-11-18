@@ -90,10 +90,21 @@ def check_premise(ctx: Context, topic: str, idea: Idea) -> PremiseCheck:
     return check
 
 
+def usable(app, check: PremiseCheck | None) -> bool:
+    """Can a script be built on this idea? False premises only with a correction and IDEAS_FALSE_PREMISE=correct."""
+    if check is None or check.verdict != "false":
+        return True
+    return app.ideas_false_premise == "correct" and bool(check.corrected_premise.strip())
+
+
 def premise_note(check: PremiseCheck | None) -> str:
     """Line for the script prompt."""
     if check is None or check.verdict == "true":
         return ""
+    if check.verdict == "false" and check.corrected_premise:
+        return (f"Premise check: the idea as stated is FALSE ({check.explanation}). Build the script on this accurate "
+                f"premise instead: {check.corrected_premise}\nThe idea's title and hook state the myth: write your own "
+                f"accurate title and hook. Mention the myth only to debunk it, never as a fact.")
     if check.verdict == "misleading" and check.corrected_premise:
         return (f"Premise check: the idea as stated is misleading ({check.explanation}). Build the script on this "
                 f"accurate premise instead: {check.corrected_premise}")
@@ -105,7 +116,7 @@ def premise_note(check: PremiseCheck | None) -> str:
 def take_unused(app: AppSettings, topic: str, n: int) -> list[StoredIdea]:
     """Unused ideas, skipping those that resemble earlier videos (use them explicitly with --idea)."""
     return [i for i in load_pool(app, topic).ideas if not i.used_by and not i.similar_to
-            and not (i.premise and i.premise.verdict == "false")][:n]
+            and usable(app, i.premise)][:n]
 
 
 def find_idea(app: AppSettings, topic: str, idea_id: str) -> StoredIdea:

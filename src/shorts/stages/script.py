@@ -85,11 +85,11 @@ def idea_premise(ctx: Context, run: Run):
 
 
 def write_script(ctx: Context, run: Run) -> Script:
-    from shorts.stages.ideas import premise_note
+    from shorts.stages.ideas import premise_note, usable
 
     idea = run.idea()
     check = idea_premise(ctx, run)
-    if check is not None and check.verdict == "false":
+    if not usable(ctx.app, check):
         raise FalsePremise(f"the idea's premise is false: {check.premise} ({check.explanation}). Pick another idea, "
                            f"or edit idea.json and delete premise.json, then resume")
     prompt = render("script_user", ctx.app.prompts_dir, topic=run.manifest.topic, title=idea.title,
