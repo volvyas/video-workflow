@@ -221,28 +221,61 @@ def make_handler(sb: Storyboard) -> type[BaseHTTPRequestHandler]:
                     run_id, _, rel = path[7:].partition("/")
                     return self._file(sb.file(run_id, rel))
                 self._json(404, {"error": "not found"})
+            except ConnectionError:  # the browser dropped the connection (seeking, switching scenes): normal
+                self.close_connection = True
+                return
             except FileNotFoundError as e:
                 self._json(404, {"error": str(e)})
             except (ValueError, KeyError) as e:
                 self._json(400, {"error": f"{type(e).__name__}: {e}"})
             except Exception as e:  # noqa: BLE001
                 log.error("%s %s: %s", method, path, traceback.format_exc())
-                self._json(500, {"error": f"{type(e).__name__}: {e}"})
+                try:
+                    self._json(500, {"error": f"{type(e).__name__}: {e}"})
+                except ConnectionError:
+                    self.close_connection = True
 
         def _file(self, p: Path) -> None:
+            """Serve a file in chunks, with byte ranges (browsers seek audio/video with range requests)."""
             size = p.stat().st_size
             ctype = mimetypes.guess_type(p.name)[0] or "application/octet-stream"
-            rng = self.headers.get("Range")
-            if rng and rng.startswith("bytes="):  # browsers seek audio/video with range requests
+            start, end, code = 0, size - 1, 200
+            rng = (self.headers.get("Range") or "").strip()
+            if rng.startswith("bytes=") and "," not in rng:
                 a, _, b = rng[6:].partition("-")
-                start = int(a) if a else max(0, size - int(b))
-                end = min(int(b), size - 1) if a and b else size - 1
-                with open(p, "rb") as f:
-                    f.seek(start)
-                    data = f.read(end - start + 1)
-                return self._send(HTTPStatus.PARTIAL_CONTENT, data, ctype,
-                                  {"Content-Range": f"bytes {start}-{end}/{size}", "Accept-Ranges": "bytes"})
-            self._send(200, p.read_bytes(), ctype, {"Accept-Ranges": "bytes"})
+                try:
+                    if a:
+                        start, end = int(a), min(int(b), size - 1) if b else size - 1
+                    else:
+                        start = max(0, size - int(b))
+                except ValueError:
+                    start, end = 0, size - 1
+                if start >= size or start > end:
+                    self.send_response(HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
+                    self.send_header("Content-Range", f"bytes */{size}")
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
+                    return
+                code = HTTPStatus.PARTIAL_CONTENT
+            self.send_response(code)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(end - start + 1))
+            self.send_header("Accept-Ranges", "bytes")
+            self.send_header("Cache-Control", "no-store")
+            if code == HTTPStatus.PARTIAL_CONTENT:
+                self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+            self.end_headers()
+            if self.command == "HEAD":
+                return
+            with open(p, "rb") as f:
+                f.seek(start)
+                left = end - start + 1
+                while left > 0:
+                    chunk = f.read(min(256 * 1024, left))
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    left -= len(chunk)
 
         def do_GET(self):  # noqa: N802
             self._route("GET")
@@ -256,8 +289,17 @@ def make_handler(sb: Storyboard) -> type[BaseHTTPRequestHandler]:
     return Handler
 
 
+class _Server(ThreadingHTTPServer):
+    daemon_threads = True
+
+    def handle_error(self, request, client_address):
+        if isinstance(sys.exc_info()[1], ConnectionError):  # client went away: nothing to report
+            return
+        super().handle_error(request, client_address)
+
+
 def serve(host: str = "127.0.0.1", port: int = 8765, env_file: Path | None = None) -> ThreadingHTTPServer:
     sb = Storyboard(env_file)
-    httpd = ThreadingHTTPServer((host, port), make_handler(sb))
+    httpd = _Server((host, port), make_handler(sb))
     httpd.storyboard = sb  # type: ignore[attr-defined]
     return httpd
