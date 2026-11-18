@@ -10,6 +10,16 @@
 # contains spaces. For a split model (…-00001-of-00002.gguf) point -m at the first part.
 # Drop the --mmproj line if you don't have the vision file. If a flag is rejected, check `llama-server --help`.
 models:
+  # Current default (2026-11-18): dense 27B, fits the 16 GB GPU, ~45 tok/s, vision via mmproj. Apache-2.0.
+  qwen3.8-27b:
+    cmd: >
+      C:/llama.cpp/llama-server.exe --port ${PORT}
+      -m C:/models/Qwen3.8-27B-UD-IQ4_XS.gguf
+      --mmproj C:/models/mmproj-F16.gguf
+      -ngl 99 -c 24576 -ctk q8_0 -ctv q8_0 --jinja
+    ttl: 600
+    cmdStop: taskkill /f /t /pid ${PID}
+  # Previous default: 125B MoE at 1.6 bit, ~9 tok/s, weaker facts (see docs/RECOMMENDATIONS.md 8a).
   qwen3.8-flash-next:          # must equal LLM_OPENAI_MODEL in the laptop's .env
     cmd: >
       C:/llama.cpp/llama-server.exe --port ${PORT}

@@ -84,6 +84,12 @@ class ScriptReview(BaseModel):
 
 
 class ImageVerdict(BaseModel):
+    inventory: str = Field(default="", description="FIRST look carefully: list every person, creature and object "
+                           "you see, where it is (top/middle/bottom, left/right), and how each one connects to the "
+                           "others. Count each person's or creature's arms, legs, hands and heads.")
+    fused_objects: bool = Field(default=False, description="Two separate things merged into one: a person or "
+                                "animal grown into a machine, building or another body, limbs or body parts coming "
+                                "out of objects, objects passing through each other, body parts with no owner")
     matches_prompt: bool = Field(description="The main subject and setting of the prompt are clearly shown")
     has_text_or_watermark: bool = Field(description="Any letters, words, logos, signatures or watermarks visible")
     has_artifacts: bool = Field(description="Deformed anatomy, extra/missing limbs or fingers, melted objects, "
@@ -93,7 +99,7 @@ class ImageVerdict(BaseModel):
 
     def acceptable(self, min_score: int) -> bool:
         return self.matches_prompt and not self.has_text_or_watermark and not self.has_artifacts \
-            and self.score >= min_score
+            and not self.fused_objects and self.score >= min_score
 
 
 # ---------------------------------------------------------------- internal

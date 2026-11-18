@@ -32,6 +32,7 @@ Suggestions made during design, with their status. ✅ done · 🔄 in progress 
 
 | # | Recommendation | Why | Status |
 |---|---|---|---|
+| 8a0 | **Switched to Qwen3.8-27B UD-IQ4_XS + mmproj** (2026-11-18): 45 tok/s (5×), answers the bone-pressure question correctly, vision works (image check ~7 s/image). The vision check catches text, wrong content and clear anatomy errors but missed a subtle astronaut/station fusion, so the storyboard step stays the safety net | ✅ |
 | 8a | **Better LLM quality for writing**: try a higher quant of Qwen3.8-Flash-Next if it fits (IQ2 ≈ 66–79 GB vs 80 GB RAM+VRAM), or a smaller model at Q4–Q6 for script writing (faster, often better than 1.6-bit), A/B via `-e` env files | UD-IQ1_S scripts: rewrites shrink, add new factual errors, one sentence repeated; ~9 tok/s | ⬜ your call |
 | 8b | **Split roles across models**: big model judges/fact-checks (`REVIEW_LLM_PROVIDER`), a faster/better-writing model drafts (`SCRIPT_LLM_PROVIDER`) | Different strengths; needs a second provider instance (e.g. `ollama` + `openai_compat`) | ⬜ supported today |
 | 8c | **Fact-check ideas before scripting**: reject ideas whose premise is false (e.g. "more life below than space above") | The review fixes claims, but a false premise poisons every rewrite | ⬜ |
